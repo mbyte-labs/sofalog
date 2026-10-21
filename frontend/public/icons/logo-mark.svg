@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="sofalog logo">
+  <!-- back cushions as log bars -->
+  <rect x="124" y="200" width="68" height="110" rx="34" fill="#7dd3fc"/>
+  <rect x="222" y="150" width="68" height="160" rx="34" fill="#7dd3fc"/>
+  <rect x="320" y="100" width="68" height="210" rx="34" fill="#7dd3fc"/>
+
+  <!-- seat -->
+  <rect x="92" y="326" width="328" height="64" rx="32" fill="#0ea5e9"/>
+
+  <!-- feet -->
+  <rect x="132" y="390" width="40" height="26" rx="13" fill="#0ea5e9"/>
+  <rect x="340" y="390" width="40" height="26" rx="13" fill="#0ea5e9"/>
+</svg>

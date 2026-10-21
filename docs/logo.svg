@@ -1,0 +1,27 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="sofalog logo">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#1e3a8a"/>
+    </linearGradient>
+  </defs>
+
+  <!-- app-icon tile -->
+  <rect width="512" height="512" rx="116" fill="url(#bg)"/>
+
+  <!-- back cushions as log bars -->
+  <rect x="144" y="212" width="64" height="114" rx="32" fill="#fbbf24"/>
+  <rect x="224" y="164" width="64" height="162" rx="32" fill="#fbbf24"/>
+  <rect x="304" y="118" width="64" height="208" rx="32" fill="#fbbf24"/>
+
+  <!-- armrests -->
+  <rect x="80" y="212" width="48" height="150" rx="24" fill="#f97316"/>
+  <rect x="384" y="212" width="48" height="150" rx="24" fill="#f97316"/>
+
+  <!-- seat -->
+  <rect x="72" y="302" width="368" height="60" rx="30" fill="#f97316"/>
+
+  <!-- feet -->
+  <rect x="108" y="362" width="34" height="28" rx="12" fill="#f97316"/>
+  <rect x="370" y="362" width="34" height="28" rx="12" fill="#f97316"/>
+</svg>

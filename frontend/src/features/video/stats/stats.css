@@ -1,0 +1,191 @@
+/* The Stats page's shared classes, scoped under .stats. Copied from
+   detail-page.css rather than imported: that sheet is scoped under .detail,
+   and the Stats page is not a detail page. Each section component keeps its
+   own layout in its own <style>; these are the few idioms they all share. */
+
+.stats .section {
+  margin-top: 1.75rem;
+}
+
+.stats .section:first-of-type {
+  margin-top: 0;
+}
+
+.stats .section-label {
+  margin: 0 0 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.stats .section-caption {
+  margin: -0.35rem 0 0.75rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+.stats .card {
+  padding: 1rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.stats .card + .card {
+  margin-top: 0.75rem;
+}
+
+.stats .card-caption {
+  margin: 0 0 0.6rem;
+  color: var(--text-dim);
+  font-size: 0.85rem;
+}
+
+/* A sub-heading inside a card ("Almost there", "You loved, the crowd didn't"). */
+.stats .sub-label {
+  margin: 1rem 0 0.5rem;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* Fact rows: label over value, wrapping into columns. */
+.stats .facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.9rem 2.25rem;
+  margin: 0;
+}
+
+.stats .fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.stats .fact-label {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.stats .fact-value {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats .fact-note {
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+/* Signed deltas: colour paired with the sign, never alone. */
+.stats .delta.up {
+  color: var(--ok);
+}
+
+.stats .delta.down {
+  color: var(--err);
+}
+
+/* A width-driven meter — the restore page's progress bar. */
+.stats .meter {
+  height: 0.6rem;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.stats .meter-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.4s ease;
+}
+
+.stats .meter-fill.cta {
+  background: var(--cta);
+}
+
+/* A vertical list of TitleRows. */
+.stats .row-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.stats .scroll-row {
+  display: flex;
+  gap: 0.85rem;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 0.5rem;
+  scroll-snap-type: x proximity;
+}
+
+.stats .footnote {
+  margin: 0.75rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.78rem;
+}
+
+.stats .status {
+  margin: 0;
+  padding: 3rem 1rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.stats .status.error {
+  color: var(--err);
+}
+
+/* The "Rate" buttons of the unrated section: a filled pill on the hero, a
+   text button on the rows — the --cta the pages' tracking actions wear. */
+.stats .btn-rate {
+  padding: 0.45rem 1rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--cta);
+  color: #fff;
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--ease-lift);
+}
+
+.stats .btn-rate:hover {
+  background: var(--cta-strong);
+}
+
+.stats .btn-rate.text {
+  padding: 0.35rem 0.7rem;
+  background: transparent;
+  color: var(--cta);
+}
+
+.stats .btn-rate.text:hover {
+  background: rgb(124 92 255 / 0.14);
+}
+
+.stats .btn-rate:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (hover: none) {
+  .stats .btn-rate {
+    min-height: 2.75rem;
+  }
+}

@@ -1,0 +1,83 @@
+{
+  "includeCoAuthoredBy": false,
+  "permissions": {
+    "allow": [
+      "Bash(go build:*)",
+      "Bash(go run:*)",
+      "Bash(go test:*)",
+      "Bash(go vet:*)",
+      "Bash(go fmt:*)",
+      "Bash(go list:*)",
+      "Bash(go doc:*)",
+      "Bash(go generate:*)",
+      "Bash(go version)",
+      "Bash(go env:*)",
+      "Bash(go mod tidy)",
+      "Bash(go mod download)",
+      "Bash(go mod verify)",
+      "Bash(gofmt:*)",
+      "Bash(goimports:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(npm ci:*)",
+      "Bash(npm run:*)",
+      "Bash(npm ls:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git show:*)",
+      "Bash(git branch:*)",
+      "Bash(curl http://localhost:*)",
+      "Bash(curl -s http://localhost:*)",
+      "Bash(curl http://127.0.0.1:*)",
+      "Bash(curl -s http://127.0.0.1:*)",
+      "Bash(sqlite3 data/sofalog.db:*)",
+      "Bash(docker compose build:*)",
+      "Bash(docker compose config:*)"
+    ],
+    "ask": [
+      "Bash(go get:*)",
+      "Bash(npm install:*)",
+      "Bash(npm i:*)",
+      "Bash(npm add:*)",
+      "Bash(git push:*)",
+      "Bash(git commit:*)",
+      "Bash(docker compose up:*)",
+      "Bash(docker compose down:*)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Read(./**/*.pem)",
+      "Write(./data/**)",
+      "Edit(./data/**)",
+      "Bash(rm -rf:*)",
+      "Bash(docker compose down -v:*)",
+      "Bash(git push --force:*)",
+      "Bash(git push -f:*)"
+    ]
+  },
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/guard-immutable.sh\""
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"$CLAUDE_PROJECT_DIR/.claude/hooks/format.sh\""
+          }
+        ]
+      }
+    ]
+  }
+}
