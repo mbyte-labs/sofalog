@@ -62,3 +62,13 @@ data/
 # ---> Claude Code: commit settings.json, hooks, skills and commands;
 # ignore only machine-local overrides.
 .claude/settings.local.json
+
+# ---> Local folder that is not commited and contains files specific for the developer's environment
+.local/
+
+# ---> VS Code: commit the shared launch, task and extension recommendations;
+# ignore personal settings and anything else the editor drops here.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json
