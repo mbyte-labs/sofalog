@@ -59,6 +59,10 @@ data/
 /server/sofalog
 /bin/
 
+# ---> Delve debug binaries: the VS Code Go debugger builds `__debug_bin<pid>`
+# next to the package it launches. Unanchored so any package directory is covered.
+__debug_bin*
+
 # ---> Claude Code: commit settings.json, hooks, skills and commands;
 # ignore only machine-local overrides.
 .claude/settings.local.json

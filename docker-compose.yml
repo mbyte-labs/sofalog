@@ -1,6 +1,16 @@
 # sofalog — single app container behind whatever reverse proxy terminates TLS.
 # The bundled Caddy setup is a separate file and still outstanding for M0.
 #
+# Two ways to get the image, same service either way:
+#
+#   docker compose up -d            pulls ghcr.io/mbyte-labs/sofalog:latest, the
+#                                   image .github/workflows/docker.yml publishes
+#                                   on every v*.*.* tag on main (amd64 and arm64)
+#   docker compose up -d --build    builds the Dockerfile from this checkout and
+#                                   tags the result with the same name, so the
+#                                   rest of this file does not care which one
+#                                   produced it
+#
 # Secrets are never written in this file. The TMDB credential comes from the host
 # environment or from a .env in this directory (gitignored, see env.example) —
 # set either TMDB_API_KEY_V3 or TMDB_API_KEY_V4, not both:
@@ -15,7 +25,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: sofalog:latest
+    image: ghcr.io/mbyte-labs/sofalog:latest
     restart: unless-stopped
     environment:
       # The absolute external URL users reach the app at. The only source of

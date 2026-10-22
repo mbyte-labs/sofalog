@@ -205,7 +205,31 @@ The bundled Caddyfile is the one M0 deployment file still outstanding.
 
 The `Dockerfile` is multi-stage — Node builds the SPA, Go compiles the binary around it, and only
 the binary lands in an Alpine runtime image. `docker-compose.yml` runs it with `./data` bind-mounted
-and no secret written into the file:
+and no secret written into the file. There are two ways to get the image.
+
+**Pull and run** (the default). `.github/workflows/docker.yml` builds the Dockerfile on GitHub
+Actions for `linux/amd64` and `linux/arm64` and publishes it to GHCR as `ghcr.io/mbyte-labs/sofalog`.
+The compose file names that image, so plain `up` pulls it:
+
+```bash
+cp env.example .env
+docker compose up -d
+```
+
+A release is a `vX.Y.Z` git tag whose commit is on `main`: the workflow writes `latest`, `X.Y.Z`
+and `X.Y` for it, and refuses a tag cut from any other branch. Nothing is published on an ordinary
+push. To get an image of an unreleased branch, run the workflow by hand from the Actions tab
+(Docker image → Run workflow, pick the branch); that pushes `<branch>` and `sha-<short sha>`, or
+only checks that the Dockerfile builds if you untick "Push". Pull requests build the image but push
+nothing, so a broken Dockerfile fails the PR.
+
+GHCR packages are private by default, so an anonymous `docker pull` fails until the package is
+made public once on GitHub: repository → **Packages** → **sofalog** → **Package settings** →
+**Change visibility** → Public. Until then, pull with a token that has `read:packages`, or build
+from source.
+
+**Build from source** (the alternative). The compose file keeps its `build:` block, so `--build`
+compiles this checkout and tags the result with the same image name:
 
 ```bash
 cp env.example .env
