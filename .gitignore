@@ -1,0 +1,78 @@
+# ---> Go
+# If you prefer the allow list template instead of the deny list, see community template:
+# https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
+#
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# env file
+.env
+.env.local
+*.pem
+
+# ---> OS
+.DS_Store
+Thumbs.db
+
+# ---> Frontend (Svelte + Vite)
+frontend/node_modules/
+frontend/.vite/
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Embedded SPA build output. Keep a placeholder committed: //go:embed fails to
+# compile against a missing or empty directory, so a fresh clone must be able to
+# `go build` before anyone has run Vite. vite.config.js sets emptyOutDir: false
+# so the build does not delete these.
+server/web/dist/*
+!server/web/dist/.gitkeep
+!server/web/dist/index.html
+
+# ---> Runtime data volume: SQLite DB, downloaded assets, provider cache.
+# Never commit. Scoped to the directory rather than *.db so test fixtures survive
+# (Go fixtures live in testdata/ by convention, which this does not match).
+# Unanchored on purpose: DATA_DIR defaults to ./data relative to the working
+# directory, so `cd server && go run .` creates server/data/ — a leading-slash
+# pattern would only have caught the repo root.
+data/
+
+# ---> Local binaries (`cd server && go build .` drops the binary in server/)
+/sofalog
+/server/sofalog
+/bin/
+
+# ---> Delve debug binaries: the VS Code Go debugger builds `__debug_bin<pid>`
+# next to the package it launches. Unanchored so any package directory is covered.
+__debug_bin*
+
+# ---> Claude Code: commit settings.json, hooks, skills and commands;
+# ignore only machine-local overrides.
+.claude/settings.local.json
+
+# ---> Local folder that is not commited and contains files specific for the developer's environment
+.local/
+
+# ---> VS Code: commit the shared launch, task and extension recommendations;
+# ignore personal settings and anything else the editor drops here.
+.vscode/*
+!.vscode/launch.json
+!.vscode/tasks.json
+!.vscode/extensions.json

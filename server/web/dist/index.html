@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <!-- Committed STUB. The Vite build (frontend/, `npm run build`) overwrites
+         this file with the real shell; it exists so that //go:embed compiles
+         on a fresh clone before anyone has built the SPA. Do not commit the
+         built version. -->
+    <!-- Every other URL in the built bundle is relative (Vite base: './'), so
+         they resolve against THIS tag rather than the current route. The Go
+         server rewrites this href from BASE_URL at startup, which is what keeps
+         a sub-path deployment working; '/' is the dev default. Keep exactly one
+         <base href> here — server/web rewrites it and its test counts it. -->
+    <base href="/" />
+    <link rel="icon" type="image/svg+xml" href="./icons/logo.svg" />
+    <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+    <link rel="manifest" href="./manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#1f1e1d" />
+    <title>sofalog</title>
+  </head>
+  <body>
+    <div id="app">
+      <p>sofalog: the frontend has not been built yet. Run <code>npm run build</code> in <code>frontend/</code>.</p>
+    </div>
+  </body>
+</html>

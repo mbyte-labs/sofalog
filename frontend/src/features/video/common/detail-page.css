@@ -1,0 +1,616 @@
+/* Chrome shared by the video feature's detail pages (movie, show).
+ *
+ * A Svelte component can only scope styles to markup it declares itself, and
+ * these rules dress markup the pages write: the hero's title and meta line
+ * (passed into DetailHero as snippets), the section skeleton, the outbound
+ * links and fact grid, the score blocks, the tracking buttons and the cast
+ * row. Two pages rendering the same anatomy from two private copies of this
+ * would drift on the first tweak, so it lives here instead — every selector
+ * kept under the pages' own `.detail` wrapper, which is what keeps a global
+ * stylesheet from leaking into the rest of the app.
+ *
+ * Anything a component fully owns stays scoped inside that component.
+ */
+
+/* ── Hero text (the snippets the pages pass in) ─────────────────────── */
+
+/* Zero-size holder for the shared gradient defs — must not take layout room. */
+.detail .svg-defs {
+  position: absolute;
+}
+
+.detail .hero-info h1 {
+  margin: 0 0 0.5rem;
+  font-size: clamp(1.4rem, 4vw, 2.2rem);
+  line-height: 1.12;
+  letter-spacing: -0.01em;
+  text-shadow: 0 2px 8px rgb(0 0 0 / 0.6);
+}
+
+.detail .directed {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+}
+
+.detail .meta-line {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text);
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.6);
+}
+
+.detail .meta-line span {
+  white-space: nowrap;
+}
+
+.detail .meta-line span:not(:first-child)::before {
+  content: '·';
+  margin: 0 0.5rem;
+  color: var(--text-dim);
+}
+
+.detail .tagline {
+  margin: 0 0 0.5rem;
+  font-style: italic;
+  font-size: 0.9rem;
+}
+
+.detail .overview {
+  margin: 0;
+  font-size: 0.95rem;
+  line-height: 1.65;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.5);
+}
+
+.detail .pending {
+  color: var(--text-dim);
+}
+
+/* ── Body skeleton ──────────────────────────────────────────────────── */
+
+/* Sections stack in DOM order at every width; wide screens only restyle
+     individual cards. */
+.detail .content {
+  display: flex;
+  flex-direction: column;
+}
+
+.detail .section {
+  margin-top: 1.75rem;
+}
+
+.detail .section-label {
+  margin: 0 0 0.6rem;
+  color: var(--text-dim);
+  opacity: 0.85;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.detail .card {
+  padding: 1rem 1.15rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+}
+
+.detail .scroll-row {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  padding-bottom: 0.5rem;
+}
+
+.detail .row-note {
+  margin: 0.25rem 0 0;
+  font-size: 0.78rem;
+}
+
+.detail .demo-hint {
+  margin: -0.25rem 0 0;
+  color: var(--text-dim);
+  font-size: 0.75rem;
+  font-style: italic;
+}
+
+.detail .quiet p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+
+.detail .status {
+  margin: 0;
+  padding: 3rem 1rem;
+  color: var(--text-dim);
+  font-size: 0.9rem;
+  text-align: center;
+}
+
+.detail .status a {
+  color: var(--accent);
+}
+
+/* ── Details (outbound links + provider facts) ──────────────────────── */
+
+.detail .details {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.detail .ext-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+/* Surface pills on the bare page background, like the timeline chips.
+     These are real outbound links, hence the pill + hover. */
+.detail .ext-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  height: 2.1rem;
+  padding: 0 0.9rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  color: var(--text);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background var(--ease-lift),
+    border-color var(--ease-lift);
+}
+
+.detail .ext-link:hover {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+
+.detail .facts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.25rem;
+}
+
+.detail .fact {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.detail .fact-label {
+  color: var(--text-dim);
+  font-size: 0.68rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.detail .fact-value {
+  font-size: 1rem;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail .fact-note {
+  color: var(--text-dim);
+  font-size: 0.7rem;
+}
+
+/* ── Ratings (provider scores beside your own) ──────────────────────── */
+
+.detail .ratings-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+.detail .scores {
+  display: flex;
+  align-items: stretch;
+  gap: 2.25rem;
+}
+
+.detail .score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+}
+
+.detail .score-divider {
+  width: 1px;
+  background: var(--border);
+}
+
+.detail .score-logo {
+  display: flex;
+  align-items: center;
+  height: 2.25rem;
+}
+
+.detail .imdb-logo {
+  color: #f5c518; /* IMDb brand yellow drives the currentColor fill */
+}
+
+.detail .score-value {
+  font-size: 1.6rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.detail .score-votes {
+  font-size: 0.75rem;
+}
+
+/* ── Tracking actions ───────────────────────────────────────────────── */
+
+/* Capped so the pill button doesn't stretch across the whole content
+     column; narrower viewports stay full width. Spacing above comes from
+     .section — no margin of its own. */
+/* stretch, not center: the round icon button beside the CTA takes its height
+   from the row rather than guessing it, so the two stay matched if the CTA's
+   padding ever changes. */
+.detail .actions {
+  display: flex;
+  align-items: stretch;
+  gap: 0.75rem;
+  max-width: 26rem;
+}
+
+.detail .watch-cta {
+  flex: 1;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 999px;
+  background: var(--cta);
+  color: #fff;
+  font: inherit;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background var(--ease-lift),
+    box-shadow var(--ease-lift);
+}
+
+.detail .watch-cta:hover:enabled {
+  background: var(--cta-strong);
+  box-shadow: 0 4px 14px rgb(124 92 255 / 0.35);
+}
+
+.detail .watch-cta:focus-visible,
+.detail .icon-toggle:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Disabled here means "a write is in flight" or "this control is not wired
+   yet", and both should read as unavailable rather than merely unhovered. */
+.detail .watch-cta:disabled,
+.detail .icon-toggle:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.detail .watch-cta.done {
+  background: transparent;
+  border: 1.5px solid var(--cta);
+  color: var(--cta);
+  padding: calc(0.75rem - 1.5px) 1.5rem;
+}
+
+/* A circle the height of the CTA pill, so the pair reads as one control rather
+   than a pill next to a browser default button. The height comes from the row's
+   `align-items: stretch`; the width comes from the SAME 0.75rem the CTA uses
+   vertically, applied on all four sides around a square glyph — so the two stay
+   matched by construction instead of by a hard-coded number. (aspect-ratio does
+   not do it: a flex item's base size still comes from its content.) Only the
+   glyph inside, no label — the accessible name and the tooltip carry the
+   meaning. Shared by the watchlist bookmark and the favorites heart (D-030):
+   two axes, one control shape. */
+.detail .icon-toggle {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  padding: 0.75rem;
+  line-height: 0;
+  border: 1.5px solid var(--accent);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  transition:
+    background var(--ease-lift),
+    box-shadow var(--ease-lift);
+}
+
+.detail .icon-toggle:hover:enabled {
+  background: var(--accent-tint);
+  box-shadow: 0 4px 14px rgb(14 165 233 / 0.3);
+}
+
+/* On (listed / favorited): the tint stays filled without hovering, matching
+   the filled glyph. */
+.detail .icon-toggle.on {
+  background: var(--accent-tint-strong);
+}
+
+/* ── Horizontal rows (cast, similar) ────────────────────────────────── */
+
+.detail .cast-card {
+  width: 108px;
+  flex-shrink: 0;
+}
+
+.detail .cast-photo,
+.detail .similar-poster {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  aspect-ratio: 2 / 3;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border);
+  overflow: hidden;
+  background: linear-gradient(
+    160deg,
+    hsl(var(--poster-hue) 18% 26%),
+    hsl(var(--poster-hue) 22% 13%)
+  );
+  color: rgb(255 255 255 / 0.25);
+}
+
+.detail .cast-photo img,
+.detail .similar-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.detail .cast-name,
+.detail .cast-role,
+.detail .similar-name,
+.detail .similar-meta {
+  margin: 0.45rem 0 0;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.detail .cast-role,
+.detail .similar-meta {
+  margin-top: 0.1rem;
+  color: var(--text-dim);
+  font-weight: 400;
+  font-size: 0.75rem;
+}
+
+/* The episode count sits under the part, a shade quieter still: it qualifies
+   the role rather than naming one. */
+.detail .cast-episodes {
+  font-size: 0.7rem;
+  opacity: 0.8;
+}
+
+/* The rail's expander: a bare button so the photo face carries all the chrome
+   — sharing .cast-card/.cast-photo keeps it the size of the cards around it.
+   Surface-toned rather than hue-tinted, so it reads as a control and not as
+   one more person. The season grid's .season-more, for a horizontal rail. */
+.detail .cast-more {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  text-align: center;
+}
+
+.detail .cast-more .cast-photo {
+  flex-direction: column;
+  gap: 0.3rem;
+  background: var(--surface);
+  transition: border-color 0.15s ease;
+}
+
+.detail .cast-more:hover .cast-photo,
+.detail .cast-more:focus-visible .cast-photo {
+  border-color: var(--accent);
+}
+
+.detail .cast-more:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+.detail .cast-more .more-count {
+  font-size: 1.4rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+}
+
+.detail .cast-more .more-label {
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+/* A similar-title card is a cast card that is also a link: the same width and
+   poster face (the grouped .cast-* rules above carry .similar-poster,
+   .similar-name and .similar-meta too), plus the link reset and the search
+   card's affordance — accent border and a small lift on the poster. A cast
+   card with a person id (.cast-link, D-027) is the same link, so both share
+   these rules. */
+.detail .similar-card,
+.detail .cast-link {
+  display: block;
+  width: 108px;
+  flex-shrink: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.detail .similar-poster,
+.detail .cast-link .cast-photo {
+  position: relative;
+  transition:
+    border-color var(--ease-lift),
+    transform var(--ease-lift),
+    box-shadow var(--ease-lift);
+}
+
+.detail .similar-poster {
+  color: rgb(255 255 255 / 0.5);
+}
+
+.detail .similar-card:hover .similar-poster,
+.detail .similar-card:focus-visible .similar-poster,
+.detail .cast-link:hover .cast-photo,
+.detail .cast-link:focus-visible .cast-photo {
+  border-color: var(--accent);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+
+.detail .similar-card:hover .similar-name,
+.detail .cast-link:hover .cast-name {
+  color: var(--accent);
+}
+
+.detail .similar-card:focus-visible,
+.detail .cast-link:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-md);
+}
+
+/* The poster-less placeholder: the search card's monogram, at the rail's
+   smaller size. */
+.detail .similar-initials {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+}
+
+/* TMDB's score, badged bottom-right exactly as the search and season cards do
+   it, so a poster reads the same wherever it appears. */
+.detail .similar-rating {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.45rem;
+  border-radius: 0.4rem 0 0 0;
+  background: rgb(0 0 0 / 0.35);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-shadow: 0 1px 3px rgb(0 0 0 / 0.85);
+}
+
+.detail .similar-rating .heart {
+  color: #f2555a;
+  font-size: 0.85rem;
+  line-height: 1;
+}
+
+/* ── Wide screens ───────────────────────────────────────────────────── */
+
+@media (min-width: 1100px) {
+  .detail .hero-info h1 {
+    margin-bottom: 0.7rem;
+    font-size: clamp(2rem, 2.6vw, 3rem);
+  }
+
+  /* The two rating groups share one row: provider scores at their natural
+         width on the left, your own rating beside them (capped by .rate's
+         max-width, not stretched to the screen edge). */
+  .detail .ratings-row {
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: flex-start;
+    /* Row gap is the stacked layout's gap, for the show page's third card
+       when it wraps onto its own line; .rate-block's basis is the capped bar,
+       so that only happens when the three genuinely do not fit. */
+    gap: 1.75rem 3.5rem;
+  }
+
+  .detail .ratings-block {
+    min-width: 0;
+  }
+
+  /* Grows to the bar's own cap and no further: the RatingBar inside stops at
+     30rem, so a wider card is only empty space — and on the show page that
+     space pushed the "Your average" card to the far edge instead of letting
+     it sit right after the bar. The 20rem basis is what makes the row wrap
+     honestly: without it a zero-basis card never counts as needing room, and
+     a third card would squeeze the bar rather than drop to its own line. */
+  .detail .rate-block {
+    flex: 1 1 20rem;
+    max-width: 30rem;
+  }
+
+  .detail .scores {
+    gap: 2.5rem;
+  }
+
+  /* Details on one line: link chips left, facts behind a divider. */
+  .detail .details {
+    flex-direction: row;
+    align-items: center;
+    gap: 2rem;
+  }
+
+  .detail .ext-links {
+    flex-shrink: 0;
+  }
+
+  .detail .facts {
+    flex: 1;
+    min-width: 0;
+    padding-left: 2rem;
+    border-left: 1px solid var(--border);
+    gap: 1rem 2.5rem;
+  }
+
+  .detail .cast-card,
+  .detail .similar-card {
+    width: 132px;
+  }
+}
+
+/* ── Mobile ─────────────────────────────────────────────────────────── */
+
+@media (max-width: 599px) {
+  .detail .scores {
+    gap: 1.5rem;
+  }
+}
+
+/* ── Touch ──────────────────────────────────────────────────────────── */
+
+@media (hover: none) {
+  .detail .ext-link {
+    height: 2.75rem;
+  }
+
+  /* No sticky lift after taps on touch devices — the search card's rule. */
+  .detail .similar-card:hover .similar-poster,
+  .detail .cast-link:hover .cast-photo {
+    transform: none;
+    box-shadow: none;
+    border-color: var(--border);
+  }
+}

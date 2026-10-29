@@ -1,0 +1,26 @@
+# Keep the build context small and make sure no secret or runtime state is ever
+# copied into an image layer.
+.git/
+.gitignore
+.claude/
+.DS_Store
+
+# Secrets: the API key is injected at run time, never baked into the image.
+.env
+.env.*
+*.pem
+*.key
+
+# Runtime volume — the SQLite database, downloaded assets and provider cache.
+data/
+server/data/
+
+# Rebuilt inside the image.
+frontend/node_modules/
+frontend/.vite/
+server/sofalog
+
+# Documentation and specs play no part in the build.
+*.md
+docs/
+api/
