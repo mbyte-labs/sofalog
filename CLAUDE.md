@@ -872,12 +872,11 @@ Code is organised **per feature** (D-014, D-037). The Go module is `server/` (mo
   irreversible, and `RateableTargets` refuses it with a 422.
   `UNIQUE(user_id, target)`; re-rating is an upsert that **overwrites**. No history rows.
 - **Games have no play status**: played/unplayed is derived from `hours_played` (0 = unplayed).
-- **Pre-release the schema is one editable baseline** (D-016): `server/migrations/sql/0001_init.sql`
-  is the whole schema, and changing it means **editing that file** and deleting the dev database
-  (`server/data/sofalog.db`) so it rebuilds. Do **not** add `0002_*.sql`. `db.Migrate` checksums
-  applied files and fails at startup if you forget the delete. At the first deployed release,
-  `server/migrations/FROZEN` is created — from then on migrations are append-only numbered files and
-  the baseline is immutable.
+- **The schema baseline is frozen** (D-016): `server/migrations/FROZEN` was created at v1.0.0, so
+  `server/migrations/sql/0001_init.sql` is **immutable** and every schema change is a new numbered
+  file (`0002_*.sql`, then `0003_*.sql`, …), append-only, one logical change per file. Never edit an
+  applied migration: `db.Migrate` checksums applied files and fails at startup when one changed, and
+  a deployed database cannot be recreated.
 
 ## Local-first (the product's whole thesis)
 

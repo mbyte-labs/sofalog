@@ -145,8 +145,8 @@ convention and `/verify` greps rather than by package boundaries (D-014):
 - SQLite with **WAL mode** enabled — handles self-hosted multi-user scale easily.
 - SQL stays **portable** across SQLite and Postgres, so Postgres support stays cheap.
 - Migrations are checked into the repo, numbered, and applied automatically on startup. Until the
-  first deployed release there is exactly **one** — the baseline `0001_init.sql`, edited in place —
-  and append-only begins at release ([D-016](#d-016--pre-release-the-schema-is-one-editable-baseline-not-a-migration-chain)).
+  first deployed release there was exactly **one** — the baseline `0001_init.sql`, edited in place;
+  it was frozen at v1.0.0 and migrations are append-only since ([D-016](#d-016--pre-release-the-schema-is-one-editable-baseline-not-a-migration-chain)).
 - Schema shape is in [§4](#4-data-model).
 
 ### Authentication
@@ -1453,7 +1453,8 @@ one readable document.
 
 **Release flips this permanently.** Creating `server/migrations/FROZEN` freezes the baseline; from
 then on every change is a new numbered file and the baseline is immutable, because from that moment
-a database exists that cannot be recreated. Two mechanisms enforce it rather than prose:
+a database exists that cannot be recreated. **This happened at v1.0.0**: `FROZEN` exists, and the
+next schema change is `0002_*.sql`. Two mechanisms enforce it rather than prose:
 
 - `.claude/hooks/guard-immutable.sh` blocks edits to any migration except the un-frozen baseline.
 - `db.Migrate` records a checksum per applied file and **fails at startup** when an applied file no

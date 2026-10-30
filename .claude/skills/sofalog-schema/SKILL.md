@@ -751,13 +751,10 @@ SQL must run unmodified on SQLite and Postgres. Before committing a query:
 
 ## Migrations
 
-- **Pre-release there is exactly one migration** (D-016): the baseline
-  `server/migrations/sql/0001_init.sql` holds the whole schema and you **edit it in place**, then
-  delete `server/data/sofalog.db` so it rebuilds. Do not add `0002_*.sql`. `db.Migrate` checksums
-  applied files and fails at startup if the delete is forgotten, so an edited baseline is never
-  silently skipped.
-- **After release, append-only.** `server/migrations/FROZEN` exists from the first deployed release;
-  from then on the baseline is immutable (a `PreToolUse` hook blocks edits) and each change is a new
+- **The baseline is frozen** (D-016): `server/migrations/sql/0001_init.sql` was edited in place
+  until v1.0.0, when `server/migrations/FROZEN` was created. `db.Migrate` checksums applied files
+  and fails at startup when one has changed, so never edit an applied migration.
+- **Append-only.** The baseline is immutable (a `PreToolUse` hook blocks edits) and each change is a new
   `NNNN_snake_case.sql`, zero-padded, monotonic, applied in filename order — one logical change per
   file.
 - Include `CREATE INDEX` statements with the table they serve.
