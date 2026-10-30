@@ -32,10 +32,11 @@ type appliedMigration struct {
 //     migrations are append-only);
 //   - an applied migration whose file contents have changed since.
 //
-// The third exists because sofalog is pre-deploy: the baseline schema is edited
-// in place by design (D-016), and an already-recorded file is otherwise skipped
-// silently, leaving a database that is missing the edit but looks healthy.
-// Failing at startup turns that into one clear instruction.
+// The third exists because the baseline schema was edited in place until
+// release (D-016), and an already-recorded file is otherwise skipped silently,
+// leaving a database that is missing the edit but looks healthy. Since the
+// freeze it also catches an applied migration edited by mistake. Failing at
+// startup turns either into one clear instruction.
 func Migrate(ctx context.Context, d *DB, fsys fs.FS) (int, error) {
 	const create = `
 CREATE TABLE IF NOT EXISTS schema_migrations (
