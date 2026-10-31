@@ -1,0 +1,580 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>sofalog — self-hosted movie, TV and game tracker</title>
+    <meta
+      name="description"
+      content="sofalog is a self-hosted, multi-user tracker for the movies, shows and games you watch and play. One Go binary, your own server, your library stored locally — text and artwork."
+    />
+    <meta name="theme-color" content="#1f1e1d" />
+    <meta name="color-scheme" content="dark" />
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <link
+      rel="icon"
+      href="icons/icon-192.png"
+      type="image/png"
+      sizes="192x192"
+    />
+    <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="site.css" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="sofalog" />
+    <meta
+      property="og:title"
+      content="sofalog — self-hosted movie, TV and game tracker"
+    />
+    <meta
+      property="og:description"
+      content="A self-hosted, multi-user tracker for the movies, shows and games you watch and play. Your library stays on your own server."
+    />
+    <meta property="og:url" content="https://mbyte-labs.github.io/sofalog/" />
+    <meta
+      property="og:image"
+      content="https://mbyte-labs.github.io/sofalog/screenshots/up-next.jpg"
+    />
+    <meta property="og:image:width" content="1440" />
+    <meta property="og:image:height" content="900" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <header class="hero">
+      <div class="wrap hero-grid">
+        <div class="hero-copy">
+          <div class="brand">
+            <svg
+              class="brand-mark"
+              viewBox="0 0 512 512"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <defs>
+                <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#2563eb" />
+                  <stop offset="1" stop-color="#1e3a8a" />
+                </linearGradient>
+              </defs>
+              <rect width="512" height="512" rx="116" fill="url(#bg)" />
+              <rect
+                x="144"
+                y="212"
+                width="64"
+                height="114"
+                rx="32"
+                fill="#fbbf24"
+              />
+              <rect
+                x="224"
+                y="164"
+                width="64"
+                height="162"
+                rx="32"
+                fill="#fbbf24"
+              />
+              <rect
+                x="304"
+                y="118"
+                width="64"
+                height="208"
+                rx="32"
+                fill="#fbbf24"
+              />
+              <rect
+                x="80"
+                y="212"
+                width="48"
+                height="150"
+                rx="24"
+                fill="#f97316"
+              />
+              <rect
+                x="384"
+                y="212"
+                width="48"
+                height="150"
+                rx="24"
+                fill="#f97316"
+              />
+              <rect
+                x="72"
+                y="302"
+                width="368"
+                height="60"
+                rx="30"
+                fill="#f97316"
+              />
+              <rect
+                x="108"
+                y="362"
+                width="34"
+                height="28"
+                rx="12"
+                fill="#f97316"
+              />
+              <rect
+                x="370"
+                y="362"
+                width="34"
+                height="28"
+                rx="12"
+                fill="#f97316"
+              />
+            </svg>
+            <span class="brand-name">sofalog</span>
+          </div>
+          <p class="pill">
+            <span class="pill-dot" aria-hidden="true"></span>Work in progress ·
+            movies &amp; TV usable today · games next
+          </p>
+          <h1>Your watch history, on your own server.</h1>
+          <p class="lede">
+            sofalog is a self-hosted, multi-user tracker for the movies, shows
+            and games you watch and play. One Go binary with an embedded Svelte
+            web app and a SQLite database, run behind your own reverse proxy.
+            Metadata comes from TMDB (and Steam for games), but your library —
+            the text <em>and</em> the artwork — is stored where you are, so it
+            keeps working even when the provider doesn't.
+          </p>
+          <div class="actions">
+            <a class="btn btn-primary" href="#run">Get started</a>
+            <a
+              class="btn btn-ghost"
+              href="https://github.com/mbyte-labs/sofalog"
+              >View on GitHub</a
+            >
+          </div>
+        </div>
+        <a class="hero-shot" href="screenshots/up-next.jpg">
+          <img
+            src="screenshots/up-next.jpg"
+            width="1440"
+            height="900"
+            alt="sofalog's Up Next page: a grid of show posters, each with the next unwatched episode named beneath it."
+            fetchpriority="high"
+            decoding="async"
+          />
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <section class="band" id="local-first" aria-labelledby="local-first-h">
+        <div class="wrap">
+          <p class="kicker">Local-first</p>
+          <h2 id="local-first-h">
+            The library is yours, not a cache of someone else's
+          </h2>
+          <div class="cards three">
+            <article class="card">
+              <h3>Everything is stored locally</h3>
+              <p>
+                Every tracked title keeps its full metadata snapshot —
+                description, runtime, air dates, genres, cast — and its artwork
+                at two sizes, in your database and on your disk. Back up one
+                directory and you have backed up the app.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Works when the provider doesn't</h3>
+              <p>
+                No page calls TMDB to render. The provider is asked something
+                only when you search, track a title, or a scheduled refresh runs
+                — and a stale snapshot is served rather than an error.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Private by default</h3>
+              <p>
+                Every account has its own history, ratings and lists. Nothing is
+                shared unless a user opts in; the one exception is matching
+                watchlists, which shows only the overlap with your own.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="features" id="features" aria-labelledby="features-h">
+        <div class="wrap">
+          <p class="kicker">Features</p>
+          <h2 id="features-h">What it does</h2>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>Up Next</h3>
+            <p>
+              Every show you have started, with the next unwatched episode one
+              tap away. Season premieres are flagged, a next episode that has
+              not aired yet wears an <em>Upcoming</em> badge, and tapping a card
+              logs the watch — the date and an optional rating in one go —
+              without leaving the page.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/up-next.jpg">
+            <img
+              src="screenshots/up-next.jpg"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Up Next: posters for Futurama, Grey's Anatomy, Big Mouth and others, each labelled with the next episode to watch."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>Upcoming</h3>
+            <p>
+              A calendar of the episodes and movies you are waiting for: every
+              unwatched, dated episode of a show you follow or have on your
+              watchlist, plus watchlisted movies by release date. Today counts,
+              and the day is yours — every date is computed in your time zone.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/upcoming.jpg">
+            <img
+              src="screenshots/upcoming.jpg"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Upcoming: a grid of episode cards in date order, each poster wearing its air date in the corner."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>Show pages that track, not just describe</h3>
+            <p>
+              Progress against aired episodes. A dated history where rewatches
+              and backdated watches are first-class and a mis-tap can be
+              removed. Your rating next to TMDB's, and the average of your
+              episode ratings per season and per show. Where it streams in your
+              country, which formats you own it on, and a
+              <em>Drop show</em> button for the ones you gave up on.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/show-details.jpg">
+            <img
+              src="screenshots/show-details.jpg"
+              width="1440"
+              height="1650"
+              loading="lazy"
+              decoding="async"
+              alt="Show details for Rick and Morty: ratings, your copies, streaming services, a progress bar reading Watching 41 of 91 aired episodes, a history timeline and the cast."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>The same for a movie</h3>
+            <p>
+              TMDB's score beside yours, where it streams or rents, the copies
+              you hold, every viewing as its own dated entry — so a rewatch is
+              <em>Log another watch</em>, not a toggle — the cast with a page
+              per person, and a rail of similar titles.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/movie-details.jpg">
+            <img
+              src="screenshots/movie-details.jpg"
+              width="1440"
+              height="1500"
+              loading="lazy"
+              decoding="async"
+              alt="Movie details for Harry Potter and the Philosopher's Stone: your rating of 6 out of 10, streaming on two services, one watch in 2018, a Log another watch button and the cast."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>Lists</h3>
+            <p>
+              A watchlist, favorites and dropped shows — three lists, each a
+              separate axis from watch status. A film can be watchlisted and
+              half-watched at once; a favorite is never a status. Movies and
+              shows sit interleaved, sorted and filtered in one place.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/lists.jpg">
+            <img
+              src="screenshots/lists.jpg"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Lists: three banner cards — Watchlist with 94 titles, Favorites with 93, Dropped with 9 — each backed by a collage of backdrops."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>Stats</h3>
+            <p>
+              Hours and plays, your TV-versus-movies split, the most-watched
+              show, a histogram of your ratings, genres, streaks and the titles
+              still waiting for a rating — for a year or for all time. Your own
+              numbers only; nothing is compared across accounts.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/stats.jpg">
+            <img
+              src="screenshots/stats.jpg"
+              width="1440"
+              height="1100"
+              loading="lazy"
+              decoding="async"
+              alt="Stats for 2026: 189 hours watched, 249 plays, 90 percent TV, Outlander as most-watched show and a ratings histogram."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature">
+          <div class="feature-copy">
+            <h3>Trending and Discover</h3>
+            <p>
+              TMDB's trending lists for today or this week, and a Discover page
+              you can filter by genre, rating, vote count, year, language and
+              streaming service — with the titles already in your library
+              marked, so you can see what you have not seen.
+            </p>
+          </div>
+          <a class="shot" href="screenshots/trending.jpg">
+            <img
+              src="screenshots/trending.jpg"
+              width="1440"
+              height="900"
+              loading="lazy"
+              decoding="async"
+              alt="Trending today: ranked movie and show posters, the first one carrying an In library badge."
+            />
+          </a>
+        </div>
+
+        <div class="wrap feature feature-phone">
+          <div class="feature-copy">
+            <h3>In your pocket</h3>
+            <p>
+              sofalog is a progressive web app. It installs to a phone's home
+              screen from your own address, lays out for every width from a
+              phone to a wide desktop, and keeps the one tracking button sized
+              for a thumb.
+            </p>
+          </div>
+          <a class="shot shot-phone" href="screenshots/mobile-up-next.jpg">
+            <img
+              src="screenshots/mobile-up-next.jpg"
+              width="780"
+              height="1688"
+              loading="lazy"
+              decoding="async"
+              alt="Up Next on a phone: two columns of posters under a hamburger menu and a Filters button."
+            />
+          </a>
+        </div>
+      </section>
+
+      <section class="band" id="more" aria-labelledby="more-h">
+        <div class="wrap">
+          <p class="kicker">Also in the box</p>
+          <h2 id="more-h">The rest of it</h2>
+          <div class="cards four">
+            <article class="card">
+              <h3>TMDB account sync</h3>
+              <p>
+                Ratings, watchlist and favorites pushed to your own TMDB
+                account, one-way, from a queue that never holds up a request. On
+                setup you can pull the account's lists in once.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Jellyfin</h3>
+              <p>
+                Point it at the household's Jellyfin server and the Jellyfin
+                copy tile mirrors what the server actually holds — amber when a
+                season is there but incomplete.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Ticket Box restore</h3>
+              <p>
+                Import a Ticket Box export so an existing Trakt-based history,
+                with its ratings, watchlist and favorites, comes along.
+                Re-running the same file converges.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Sign-in your way</h3>
+              <p>
+                Email and password, or OpenID Connect against the provider you
+                already run. Each user picks their own time zone.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Scheduled refresh</h3>
+              <p>
+                Followed and watchlisted titles refresh weekly, finished ones
+                quarterly, and an hourly sweep flips a finished show back to
+                <em>watching</em> once a new episode has aired.
+              </p>
+            </article>
+            <article class="card">
+              <h3>People and similar titles</h3>
+              <p>
+                Every cast photo opens a person page with their filmography
+                marked against your library, and each movie and show carries a
+                rail of similar titles.
+              </p>
+            </article>
+            <article class="card">
+              <h3>Owned copies</h3>
+              <p>
+                Record which formats you hold a movie or a season on — DVD,
+                Blu-ray, 4K, other physical or digital — as a shelf label beside
+                the streaming list, never a status.
+              </p>
+            </article>
+            <article class="card">
+              <h3>One binary</h3>
+              <p>
+                Go backend, embedded Svelte app, SQLite. Plain HTTP behind the
+                reverse proxy you already have; the published image runs on
+                amd64 and arm64.
+              </p>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <section class="run" id="run" aria-labelledby="run-h">
+        <div class="wrap narrow">
+          <p class="kicker">Run it</p>
+          <h2 id="run-h">Up in three commands</h2>
+          <p>
+            You need Docker with the Compose plugin and a free
+            <a href="https://www.themoviedb.org/settings/api">TMDB API key</a>.
+            Without a key the app runs, but you cannot add titles.
+          </p>
+          <pre><code>git clone https://github.com/mbyte-labs/sofalog.git &amp;&amp; cd sofalog
+cp env.example .env</code></pre>
+          <p>
+            Open <code>.env</code> and set <code>BASE_URL</code> to the address
+            people will reach the app at, and <strong>one</strong> of
+            <code>TMDB_API_KEY_V3</code> / <code>TMDB_API_KEY_V4</code>. Then:
+          </p>
+          <pre><code>docker compose up -d</code></pre>
+          <p>
+            Browse to <code>http://localhost:8080</code>. The first visit is the
+            setup page, which creates the admin account; everyone else is added
+            under <em>Settings → Users</em>. Everything the app stores lands in
+            <code>./data</code> next to the compose file — back that directory
+            up and you have backed up the app. Upgrading is
+            <code>docker compose pull &amp;&amp; docker compose up -d</code>.
+          </p>
+
+          <h3>The variables most installs set</h3>
+          <table>
+            <thead>
+              <tr>
+                <th>Variable</th>
+                <th>What it does</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>BASE_URL</code></td>
+                <td>
+                  <strong>Required.</strong> The absolute URL users open, e.g.
+                  <code>https://media.example.com</code>.
+                </td>
+              </tr>
+              <tr>
+                <td><code>TMDB_API_KEY_V3</code> / <code>_V4</code></td>
+                <td>TMDB credential — set one.</td>
+              </tr>
+              <tr>
+                <td><code>TMDB_WATCH_REGION</code></td>
+                <td>
+                  Country for "where to watch" listings (<code>US</code> by
+                  default).
+                </td>
+              </tr>
+              <tr>
+                <td><code>DEFAULT_TIMEZONE</code></td>
+                <td>
+                  Zone for users who have not picked one (<code>UTC</code> by
+                  default).
+                </td>
+              </tr>
+              <tr>
+                <td><code>TRUSTED_PROXIES</code></td>
+                <td>
+                  Your reverse proxy's address, so the real client IP is seen.
+                </td>
+              </tr>
+            </tbody>
+          </table>
+          <p>
+            Every variable — refresh intervals, the Jellyfin scan, OpenID
+            Connect, how <code>.env</code> is read — is in the
+            <a
+              href="https://github.com/mbyte-labs/sofalog/blob/main/docs/configuration.md"
+              >configuration reference</a
+            >. Put a TLS-terminating reverse proxy in front (Caddy, nginx,
+            Traefik): HTTPS is what makes the app installable as a PWA. The
+            <a
+              href="https://github.com/mbyte-labs/sofalog/blob/main/docs/architecture.md"
+              >architecture overview</a
+            >
+            shows the runtime shape and how the code is laid out.
+          </p>
+        </div>
+      </section>
+
+      <section class="band status" id="status" aria-labelledby="status-h">
+        <div class="wrap narrow">
+          <p class="kicker">Where it stands</p>
+          <h2 id="status-h">Movies and TV today, games next</h2>
+          <p>
+            Movies and TV are usable today. Games — your Steam library, hours
+            played and achievements — are the current milestone; an export
+            archive and API tokens follow. The whole plan, and the reasoning
+            behind each decision, is in
+            <a
+              href="https://github.com/mbyte-labs/sofalog/blob/main/SPEC.md#8-milestones"
+              >SPEC.md</a
+            >.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <div class="wrap footer-grid">
+        <p>
+          sofalog is free software under the
+          <a href="https://github.com/mbyte-labs/sofalog/blob/main/LICENSE"
+            >GNU Affero General Public License v3.0 or later</a
+          >.
+        </p>
+        <nav aria-label="Project links">
+          <a href="https://github.com/mbyte-labs/sofalog">GitHub</a>
+          <a href="https://github.com/mbyte-labs/sofalog/tree/main/docs"
+            >Documentation</a
+          >
+          <a href="https://github.com/mbyte-labs/sofalog/pkgs/container/sofalog"
+            >ghcr.io/mbyte-labs/sofalog</a
+          >
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

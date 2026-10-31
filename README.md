@@ -2,6 +2,8 @@
 
 **A self-hosted, multi-user tracker for the movies, shows and games you watch and play.**
 
+**Website:** <https://mbyte-labs.github.io/sofalog/>
+
 One Go binary with an embedded Svelte web app and a SQLite database, run behind your own reverse
 proxy. Metadata comes from [TMDB](https://www.themoviedb.org/) (and Steam for games), but your
 library — the text *and* the artwork — is stored on your own server, so it keeps working even when
@@ -103,6 +105,7 @@ server/     Go module (mbyte.ro/sofalog) — the API and, in production, the emb
 frontend/   Svelte 5 + Vite SPA — built to static files that get embedded into the Go binary
 api/        openapi.yaml, the contract for /api/v1
 docs/       architecture overview, configuration reference, release notes, screenshots
+site/       the GitHub Pages landing page (deployed by .github/workflows/pages.yml)
 data/       runtime volume (SQLite DB, artwork, provider cache) — created at runtime, never committed
 ```
 

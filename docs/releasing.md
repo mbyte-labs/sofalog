@@ -29,6 +29,23 @@ made public once on GitHub: repository → **Packages** → **sofalog** → **Pa
 **Change visibility** → Public. Until then, pull with a token that has `read:packages`, or build
 from source.
 
+## The landing page
+
+[`.github/workflows/pages.yml`](../.github/workflows/pages.yml) publishes `site/` to GitHub Pages at
+<https://mbyte-labs.github.io/sofalog/> on every push to `main` that touches the page, the
+screenshots or the logo it copies in (or by hand from the Actions tab). `site/assemble.sh` is the
+one definition of what is deployed — the page, `docs/screenshots/`, `docs/logo.svg` and the PWA
+icons — so the screenshots are never duplicated in git. The first run enables Pages on the
+repository; if GitHub refuses the token that right, enable it once under **Settings → Pages →
+Source: GitHub Actions** and re-run. The repository's homepage URL is set by hand in the same
+settings.
+
+To preview locally, assemble into any directory and serve it:
+
+```bash
+sh site/assemble.sh /tmp/sofalog-site && python3 -m http.server 8091 -d /tmp/sofalog-site
+```
+
 ## Building from source
 
 The compose file keeps its `build:` block, so `--build` compiles the current checkout and tags the

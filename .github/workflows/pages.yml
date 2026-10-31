@@ -1,0 +1,58 @@
+# Publishes the landing page in site/ to GitHub Pages at
+# https://mbyte-labs.github.io/sofalog/. site/assemble.sh is the one definition
+# of what is deployed; this workflow only runs it and hands the result to Pages.
+#
+# Runs on a push to main that touches the page or anything it copies in, or by
+# hand from the Actions tab. The first run turns Pages on for the repository
+# (configure-pages' `enablement`); if the token is refused that right, enable it
+# once by hand — Settings → Pages → Source: GitHub Actions — and re-run.
+name: Pages
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'site/**'
+      - 'docs/screenshots/**'
+      - 'docs/logo.svg'
+      - 'frontend/public/icons/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and a running one is never cancelled: Pages would be
+# left half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Assemble the site
+        run: sh site/assemble.sh _site
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v6
+        with:
+          enablement: true
+
+      - name: Upload the site
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+      - name: Deploy to Pages
+        id: deployment
+        uses: actions/deploy-pages@v5

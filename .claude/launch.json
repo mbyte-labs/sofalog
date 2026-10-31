@@ -11,6 +11,15 @@
         "./server/sofalog"
       ],
       "port": 8090
+    },
+    {
+      "name": "sofalog-site",
+      "runtimeExecutable": "sh",
+      "runtimeArgs": [
+        "-c",
+        "out=$(mktemp -d) && sh site/assemble.sh \"$out\" && exec python3 -m http.server 8091 -d \"$out\""
+      ],
+      "port": 8091
     }
   ]
 }
