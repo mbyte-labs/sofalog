@@ -1,0 +1,444 @@
+/* The landing page wears the app's own tokens (frontend/src/app.css :root) so it
+   reads as the product. Dark only, like the app. */
+:root {
+  --bg: #1f1e1d;
+  --surface: #262624;
+  --border: #3b3a37;
+  --text: #e8e6e3;
+  --text-dim: #a5a199;
+  --accent: #0ea5e9;
+  --accent-soft: #7dd0f5;
+  --accent-tint: rgb(14 165 233 / 0.14);
+  --ok: #6fd08c;
+  --cta: #7c5cff;
+  --cta-strong: #6b4ce6;
+  --radius-sm: 0.4rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.6rem;
+  --shadow-card: 0 2px 8px rgb(0 0 0 / 0.35);
+  --shadow-lift: 0 10px 24px rgb(0 0 0 / 0.45), 0 2px 6px rgb(0 0 0 / 0.3);
+  --gutter: 1.5rem;
+  --wrap: 1100px;
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+a {
+  color: var(--accent-soft);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+}
+
+h1,
+h2,
+h3 {
+  line-height: 1.15;
+  margin: 0 0 0.6rem;
+  letter-spacing: -0.01em;
+}
+h1 {
+  font-size: clamp(2rem, 4.5vw, 3.2rem);
+  font-weight: 750;
+}
+h2 {
+  font-size: clamp(1.5rem, 3vw, 2.1rem);
+  font-weight: 700;
+}
+h3 {
+  font-size: 1.2rem;
+  font-weight: 650;
+}
+p {
+  margin: 0 0 1rem;
+}
+
+.wrap {
+  width: 100%;
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+.wrap.narrow {
+  max-width: 780px;
+}
+
+.kicker {
+  margin: 0 0 0.5rem;
+  color: var(--accent);
+  font-size: 0.78rem;
+  font-weight: 650;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+/* ---------- hero ---------- */
+.hero {
+  padding-block: 3rem 2rem;
+  background:
+    radial-gradient(
+      60rem 30rem at 85% -10%,
+      rgb(14 165 233 / 0.14),
+      transparent 60%
+    ),
+    radial-gradient(
+      40rem 24rem at 0% 110%,
+      rgb(124 92 255 / 0.12),
+      transparent 60%
+    );
+}
+.hero-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: 2.5rem;
+  align-items: center;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1.5rem;
+}
+.brand-mark {
+  width: 2.4rem;
+  height: 2.4rem;
+  border-radius: 0.55rem;
+}
+.brand-name {
+  font-size: 1.35rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+  padding: 0.3rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--text-dim);
+  font-size: 0.82rem;
+}
+.pill-dot {
+  width: 0.5rem;
+  height: 0.5rem;
+  border-radius: 50%;
+  background: var(--ok);
+}
+
+.lede {
+  color: var(--text-dim);
+  font-size: 1.08rem;
+  max-width: 36rem;
+}
+.lede em {
+  color: var(--text);
+  font-style: italic;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+.btn {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.7rem 1.25rem;
+  border-radius: var(--radius-md);
+  font-weight: 600;
+  text-decoration: none;
+  transition:
+    background 0.18s ease,
+    transform 0.18s ease;
+}
+.btn:hover {
+  text-decoration: none;
+  transform: translateY(-1px);
+}
+.btn-primary {
+  background: var(--cta);
+  color: #fff;
+}
+.btn-primary:hover {
+  background: var(--cta-strong);
+}
+.btn-ghost {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+}
+.btn-ghost:hover {
+  border-color: var(--accent);
+}
+
+.hero-shot img,
+.shot img {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lift);
+  background: var(--surface);
+}
+.hero-shot,
+.shot {
+  display: block;
+  transition: transform 0.18s ease;
+}
+.hero-shot:hover,
+.shot:hover {
+  transform: translateY(-2px);
+}
+
+/* ---------- bands and cards ---------- */
+.band {
+  padding-block: 3.5rem;
+}
+.band + .band,
+.features + .band {
+  border-top: 1px solid var(--border);
+}
+#local-first {
+  background: var(--surface);
+  border-block: 1px solid var(--border);
+}
+
+.cards {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.75rem;
+}
+.cards.three {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.cards.four {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.card {
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--bg);
+  box-shadow: var(--shadow-card);
+}
+#more .card {
+  background: var(--surface);
+}
+.card h3 {
+  font-size: 1.02rem;
+  margin-bottom: 0.4rem;
+}
+.card p {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 0.95rem;
+}
+.card em {
+  color: var(--text);
+}
+
+/* ---------- feature rows ---------- */
+.features {
+  padding-block: 3.5rem 1rem;
+}
+.feature {
+  display: grid;
+  grid-template-columns: minmax(0, 2fr) minmax(0, 3fr);
+  gap: 2.5rem;
+  align-items: center;
+  padding-block: 2rem;
+}
+.feature:nth-of-type(even) .feature-copy {
+  order: 2;
+}
+.feature-copy p {
+  color: var(--text-dim);
+}
+.feature-copy em {
+  color: var(--text);
+}
+.feature-phone {
+  grid-template-columns: minmax(0, 3fr) minmax(0, 2fr);
+}
+.shot-phone {
+  max-width: 300px;
+  justify-self: center;
+}
+.shot-phone img {
+  border-radius: 1.4rem;
+}
+
+/* ---------- run ---------- */
+.run {
+  padding-block: 3.5rem;
+  border-top: 1px solid var(--border);
+}
+.run h3 {
+  margin-top: 2rem;
+}
+pre {
+  margin: 0 0 1rem;
+  padding: 1rem 1.1rem;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 0.92em;
+}
+p code,
+td code {
+  padding: 0.1em 0.35em;
+  border-radius: 0.3em;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0 0 1.25rem;
+  font-size: 0.95rem;
+}
+th,
+td {
+  padding: 0.6rem 0.75rem;
+  text-align: left;
+  vertical-align: top;
+  border-bottom: 1px solid var(--border);
+}
+th {
+  color: var(--text-dim);
+  font-weight: 600;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+td:first-child {
+  white-space: nowrap;
+}
+/* An unbreakable example URL in a cell must not widen the table past a phone. */
+td {
+  overflow-wrap: anywhere;
+}
+
+.status {
+  background: var(--surface);
+}
+
+/* ---------- footer ---------- */
+footer {
+  padding-block: 2rem 2.5rem;
+  border-top: 1px solid var(--border);
+  color: var(--text-dim);
+  font-size: 0.9rem;
+}
+.footer-grid {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 1rem;
+}
+.footer-grid p {
+  margin: 0;
+}
+footer nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.25rem;
+}
+
+/* ---------- breakpoints: the app's three widths ---------- */
+@media (max-width: 1100px) {
+  .cards.four {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 767px) {
+  :root {
+    --gutter: 1rem;
+  }
+  .hero {
+    padding-block: 2rem 1.5rem;
+  }
+  .hero-grid,
+  .feature,
+  .feature-phone {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1.5rem;
+  }
+  .feature:nth-of-type(even) .feature-copy {
+    order: 0;
+  }
+  .cards.three {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .band,
+  .features,
+  .run {
+    padding-block: 2.5rem;
+  }
+  .feature {
+    padding-block: 1.25rem;
+  }
+  .shot-phone {
+    max-width: 240px;
+  }
+  td:first-child {
+    white-space: normal;
+  }
+}
+@media (max-width: 599px) {
+  .cards.four {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .actions .btn {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .btn,
+  .shot,
+  .hero-shot {
+    transition: none;
+  }
+}
