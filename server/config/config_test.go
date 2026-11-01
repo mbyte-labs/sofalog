@@ -148,23 +148,23 @@ func TestLoad(t *testing.T) {
 			},
 		},
 		{
-			name: "the watch region defaults to US and is uppercased",
+			name: "the watch region is trimmed and uppercased",
 			env: map[string]string{
 				"BASE_URL":          "https://media.example.com",
-				"TMDB_WATCH_REGION": " ro ",
+				"TMDB_WATCH_REGION": " de ",
 			},
 			check: func(t *testing.T, c Config) {
-				if c.TMDBWatchRegion != "RO" {
-					t.Errorf("TMDBWatchRegion = %q, want RO", c.TMDBWatchRegion)
+				if c.TMDBWatchRegion != "DE" {
+					t.Errorf("TMDBWatchRegion = %q, want DE", c.TMDBWatchRegion)
 				}
 			},
 		},
 		{
-			name: "an unset watch region falls back to US",
+			name: "an unset watch region falls back to RO",
 			env:  map[string]string{"BASE_URL": "https://media.example.com"},
 			check: func(t *testing.T, c Config) {
-				if c.TMDBWatchRegion != "US" {
-					t.Errorf("TMDBWatchRegion = %q, want the US default", c.TMDBWatchRegion)
+				if c.TMDBWatchRegion != "RO" {
+					t.Errorf("TMDBWatchRegion = %q, want the RO default", c.TMDBWatchRegion)
 				}
 			},
 		},

@@ -223,10 +223,10 @@ existing nginx / Traefik / Nginx Proxy Manager. The app must behave correctly th
   3. Final stage — minimal `alpine`/`distroless` image (~20–30 MB)
 - `docker-compose.yml`: `app` (with a `./data` volume) + `caddy` (TLS termination).
 - Provider API keys are server-side configuration only — never in an API response, never in the SPA
-  bundle, never logged. The compose file *names* each key and takes its value from the environment or
-  `.env`; a key is never written into a committed file or baked into an image layer. Error strings are
-  part of "never logged": the provider clients redact `api_key` and `Bearer` values, because
-  `net/http` puts the full request URL into its transport errors.
+  bundle, never logged. The compose file *names* every variable and takes its value from
+  `.env` or the environment; a key is never written into a committed file or baked into an image
+  layer. Error strings are part of "never logged": the provider clients redact `api_key` and
+  `Bearer` values, because `net/http` puts the full request URL into its transport errors.
 - The runtime image must carry `ca-certificates`, or every HTTPS call to a provider fails with an
   x509 error that reads like a permanently unreachable provider.
 
@@ -774,7 +774,7 @@ rides the movie and show metadata calls, so it is **not** a sixth provider call 
 with TMDB unreachable, like every other snapshot field.
 
 The listing is **per country**, chosen by one server-wide setting, `TMDB_WATCH_REGION` (ISO-3166-1
-alpha-2, default `US`). TMDB answers with every country at once — 111 of them for one film, some
+alpha-2, default `RO`). TMDB answers with every country at once — 111 of them for one film, some
 45% of the whole response — so the snapshot is **pruned to the configured region before it is
 stored**, with a marker recording which. Changing the setting therefore costs each item **one**
 refresh, taken automatically on its next view. A **season** and an **episode** have no listing of their

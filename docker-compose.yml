@@ -1,11 +1,16 @@
-# sofalog — one app container behind a TLS-terminating reverse proxy.
+# sofalog — a single app container.
 #
 #   docker compose up -d            pull the published image (amd64 + arm64)
 #   docker compose up -d --build    build it from this checkout instead
 #
-# Settings come from ./.env (gitignored; start from env.example). No secrets here.
+# HTTPS: the app speaks plain HTTP. Without HTTPS and a certificate the browser
+# trusts (not self-signed), it can't be installed as an app on a phone or desktop,
+# and the offline page and cached app shell don't work. http://localhost is
+# exempt. Put a TLS-terminating reverse proxy in front for HTTPS.
 #
-#   cp env.example .env && $EDITOR .env && docker compose up -d
+# Set each value below either here (replace the ${...}) or in ./.env, which
+# Compose fills in automatically (gitignored; start from env.example). Don't
+# commit secrets to this file.
 
 services:
   app:
@@ -14,33 +19,58 @@ services:
       dockerfile: Dockerfile
     image: ghcr.io/mbyte-labs/sofalog:latest
     restart: unless-stopped
+    # The uid:gid the app runs as. It must own the ./data folder (see volumes).
+    user: '${SOFALOG_UID:-10001}:${SOFALOG_GID:-10001}'
     environment:
-      # Public URL users reach the app at. Links, OIDC redirects and the cookie
-      # Secure flag all derive from it.
+      # Required. Public URL users reach the app at.
       BASE_URL: ${BASE_URL:-http://localhost:9871}
-      DATA_DIR: /data
-      # TMDB: set one of the two (v4 wins if both are set). Without a key,
-      # browsing works but adding items fails.
+
+      # TMDB, from https://www.themoviedb.org/settings/api. Set ONE (v4 wins if
+      # both). Without one, browsing works but adding movies and shows fails.
       TMDB_API_KEY_V3: ${TMDB_API_KEY_V3:-}
       TMDB_API_KEY_V4: ${TMDB_API_KEY_V4:-}
+      # Country for the "where to watch" listings (two letters).
+      TMDB_WATCH_REGION: ${TMDB_WATCH_REGION:-RO}
+      # Time zone for users who haven't picked one (IANA name).
+      DEFAULT_TIMEZONE: ${DEFAULT_TIMEZONE:-UTC}
+      # Refresh cadence: days (7d) or a duration (36h), minimum 1h, 0 = off.
+      TMDB_REFRESH_INTERVAL: ${TMDB_REFRESH_INTERVAL:-7d}
+      TMDB_ARCHIVE_REFRESH_INTERVAL: ${TMDB_ARCHIVE_REFRESH_INTERVAL:-90d}
+
+      # Steam game sync, from https://steamcommunity.com/dev/apikey
       STEAM_API_KEY: ${STEAM_API_KEY:-}
-      # The reverse proxy's IP or CIDR, comma separated. Empty ignores
-      # X-Forwarded-* headers.
+
+      # Jellyfin library scan: set both or neither. 0 = "Scan now" button only.
+      JELLYFIN_URL: ${JELLYFIN_URL:-}
+      JELLYFIN_API_KEY: ${JELLYFIN_API_KEY:-}
+      JELLYFIN_SCAN_INTERVAL: ${JELLYFIN_SCAN_INTERVAL:-6h}
+
+      # Reverse proxy IPs or CIDRs, comma separated. Empty ignores X-Forwarded-*.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
+
       # OIDC: set all three or none. Enabling it disables password login.
       # Redirect URI to register: <BASE_URL>/api/v1/auth/oidc/callback
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      # Optional: the claim and value that grant admin.
+      # Optional: the claim and value that grant admin. Empty = no admins.
       OIDC_ADMIN_CLAIM: ${OIDC_ADMIN_CLAIM:-}
       OIDC_ADMIN_VALUE: ${OIDC_ADMIN_VALUE:-}
-      # Optional: default "openid profile email" and "single sign-on".
-      OIDC_SCOPES: ${OIDC_SCOPES:-}
-      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
+      OIDC_SCOPES: ${OIDC_SCOPES:-openid profile email}
+      OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-single sign-on}
+
+      # Where the app listens inside the container. Must match the right-hand
+      # port in ports below; change the left-hand one to pick the host port.
+      LISTEN_ADDR: ':8080'
     volumes:
+      # HOST:CONTAINER. The SQLite database, downloaded artwork (assets/) and
+      # an image cache (cache/). Change the left side to store them elsewhere.
+      # It must be owned by the user above (10001 unless SOFALOG_UID is set):
+      #   mkdir -p data && sudo chown 10001:10001 data
       - ./data:/data
     ports:
-      # Plain HTTP on every interface, for a proxy on another machine. Docker
-      # bypasses ufw, so restrict access to this port another way.
+      # HOST:CONTAINER. The app is reached on the host port (9871); Docker
+      # forwards it to the container port (8080, must match LISTEN_ADDR).
+      # Plain HTTP on every interface, and Docker bypasses ufw. To limit it,
+      # bind one address: '127.0.0.1:9871:8080' (this machine only).
       - '9871:8080'
