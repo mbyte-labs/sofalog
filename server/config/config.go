@@ -84,7 +84,7 @@ type Config struct {
 
 	// TMDBWatchRegion selects which country's "where to watch" listing the
 	// video detail pages project out of a stored snapshot (D-022). ISO-3166-1
-	// alpha-2, uppercase; "US" when unset. It is never sent to TMDB — the
+	// alpha-2, uppercase; "RO" when unset. It is never sent to TMDB — the
 	// appended section carries every country, so changing this takes effect on
 	// the next render with no refetch.
 	TMDBWatchRegion string
@@ -267,7 +267,7 @@ func load(getenv func(string) string) (Config, error) {
 		TMDBAPIKeyV4: getenv("TMDB_API_KEY_V4"),
 		SteamAPIKey:  getenv("STEAM_API_KEY"),
 
-		TMDBWatchRegion:            "US",
+		TMDBWatchRegion:            "RO",
 		DefaultTimezone:            "UTC",
 		TMDBRefreshInterval:        defaultRefreshInterval,
 		TMDBArchiveRefreshInterval: defaultArchiveRefreshInterval,

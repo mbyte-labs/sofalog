@@ -18,7 +18,7 @@ copy it to `.env` and fill in what you need (see [Providing secrets](#providing-
 | `TRUSTED_PROXIES` | no | *(empty)* | CIDRs or IPs of the reverse proxy, comma separated. `X-Forwarded-*` headers are honoured only from these peers; empty means they are ignored entirely. |
 | `TMDB_API_KEY_V3` | no | — | TMDB metadata for movies & TV. The **API Key** field on <https://www.themoviedb.org/settings/api>. Sent as an `api_key` query parameter. |
 | `TMDB_API_KEY_V4` | no | — | The **API Read Access Token** field on the same page — a JWT starting `eyJ`. Sent as an `Authorization: Bearer` header. See [The two TMDB credentials](#the-two-tmdb-credentials). |
-| `TMDB_WATCH_REGION` | no | `US` | ISO-3166-1 alpha-2 country whose "where to watch" listing the detail pages show. Snapshots store only this country's listing, so changing it costs each tracked item one automatic refresh on its next view. A value that is not two letters is a startup error. |
+| `TMDB_WATCH_REGION` | no | `RO` | ISO-3166-1 alpha-2 country whose "where to watch" listing the detail pages show. Snapshots store only this country's listing, so changing it costs each tracked item one automatic refresh on its next view. A value that is not two letters is a startup error. |
 | `TMDB_REFRESH_INTERVAL` | no | `7d` | Cadence of the **active** refresh job: every movie and show on any watchlist or favorites list, plus followed shows TMDB still lists as in production. Whole days (`7d`) or a Go duration (`36h`); `0` disables the job; under `1h` or a mixed form like `7d12h` is a startup error. |
 | `TMDB_ARCHIVE_REFRESH_INTERVAL` | no | `90d` | Cadence of the **archive** refresh job: watched movies and followed shows TMDB has ended or cancelled, when on no list. Same syntax and rules. |
 | `DEFAULT_TIMEZONE` | no | `UTC` | IANA zone for every user who has not picked one on their Account page. It decides where their day ends (which episodes count as aired, what Upcoming calls "Today") and the zone dates are shown in. An unknown name or `Local` is a startup error. Every timestamp is stored in UTC regardless. |
@@ -75,7 +75,8 @@ repo root — it is gitignored:
 cp env.example .env
 ```
 
-Two things read that one file: `docker compose` (for `${...}` interpolation) and the server itself.
+Two things read that one file: `docker compose`, which fills it into the variables the compose file
+lists, and the server itself. Without a `.env`, set the values directly in `docker-compose.yml`.
 The server looks for an env file in this order, and the first one that exists wins:
 
 1. `$ENV_FILE`, if set
@@ -91,7 +92,7 @@ secrets does not also block the template.
 
 ## Reverse proxy
 
-The server speaks plain HTTP and the Docker container publishes to `127.0.0.1:8080` only. Put a
+The server speaks plain HTTP and the Docker container publishes port `9871` on every interface. Put a
 reverse proxy that terminates TLS in front of it — HTTPS is required for the PWA service worker —
 and set `TRUSTED_PROXIES` to the proxy's address so the real client IP reaches the session table.
 Until then `X-Forwarded-*` headers are ignored entirely, which is the safe default. No proxy

@@ -67,9 +67,11 @@ Open `.env` and set `BASE_URL` to the address people will reach the app at, and 
 docker compose up -d
 ```
 
-Browse to `http://localhost:8080`. The first visit is the setup page, which creates the admin
+Browse to `http://localhost:9871`. The first visit is the setup page, which creates the admin
 account; everyone else is added under *Settings → Users*. Everything the app stores lands in
 `./data` next to the compose file — back that directory up and you have backed up the app.
+The container runs as uid/gid `10001`, which must own `./data`; set `SOFALOG_UID` / `SOFALOG_GID` in
+`.env` to run it as another user (e.g. `10000` in an LXC container).
 
 Compose pulls the published image `ghcr.io/mbyte-labs/sofalog`; `docker compose up -d --build`
 builds it from the checkout instead. Upgrading is `docker compose pull && docker compose up -d`.
@@ -82,7 +84,7 @@ The variables most installs set, all in `.env`:
 |---|---|
 | `BASE_URL` | **Required.** The absolute URL users open, e.g. `https://media.example.com`. Never derived from request headers. |
 | `TMDB_API_KEY_V3` / `TMDB_API_KEY_V4` | TMDB credential — set one. |
-| `TMDB_WATCH_REGION` | Country for "where to watch" listings (`US` by default). |
+| `TMDB_WATCH_REGION` | Country for "where to watch" listings (`RO` by default). |
 | `DEFAULT_TIMEZONE` | Zone for users who have not picked one (`UTC` by default). |
 | `TRUSTED_PROXIES` | Your reverse proxy's address, so the real client IP is seen. |
 
@@ -92,7 +94,7 @@ credentials and how `.env` is read — is documented in **[docs/configuration.md
 
 ### Reverse proxy
 
-The container speaks plain HTTP and publishes to `127.0.0.1:8080` only. Put a TLS-terminating
+The container speaks plain HTTP and publishes port `9871` on every interface. Put a TLS-terminating
 reverse proxy (Caddy, nginx, Traefik) in front of it — HTTPS is what makes the PWA installable —
 and set `TRUSTED_PROXIES` to the proxy's address.
 

@@ -951,7 +951,7 @@ Code is organised **per feature** (D-014, D-037). The Go module is `server/` (mo
   that is the proxy's job.
 - The SPA build uses **relative** asset paths (`base: './'`). No absolute `/assets/…` URL may be
   baked into the bundle.
-- `TMDB_WATCH_REGION` (ISO-3166-1 alpha-2, default `US`) is the **one** source of the country whose
+- `TMDB_WATCH_REGION` (ISO-3166-1 alpha-2, default `RO`) is the **one** source of the country whose
   "where to watch" listing the detail pages show (D-022). It is never sent to TMDB when fetching
   an item — the stored snapshot holds every country, so it only picks a key at render time. The
   **one** request that carries it is the Discover page's streaming-service filter (D-034), as
