@@ -11,7 +11,7 @@
       href: '/settings/data-sources',
       title: 'Data Sources',
       blurb:
-        'The third-party services sofalog fetches metadata and artwork from, and what each one provides.',
+        'The third-party services sofalog fetches metadata and artwork from, what each one provides, and the privacy policy.',
     },
     {
       href: '/settings/restore',

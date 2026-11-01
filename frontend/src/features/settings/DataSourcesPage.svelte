@@ -157,6 +157,19 @@
   </article>
 
   <p class="footnote">The game data source will be listed here once that feature is built.</p>
+
+  <!-- The policy is published with the project site, not bundled here: Google
+       Play stores that one URL for the listing, and the text is the
+       developer's statement, not this server's. -->
+  <p class="footnote">
+    What the app keeps on your device, what this server stores about you and which of these services
+    it talks to is written up in the
+    <a
+      href="https://mbyte-labs.github.io/sofalog/privacy/"
+      target="_blank"
+      rel="noreferrer noopener">privacy policy</a
+    >.
+  </p>
 </section>
 
 <style>
