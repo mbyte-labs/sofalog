@@ -67,7 +67,7 @@ Open `.env` and set `BASE_URL` to the address people will reach the app at, and 
 docker compose up -d
 ```
 
-Browse to `http://localhost:8080`. The first visit is the setup page, which creates the admin
+Browse to `http://localhost:9871`. The first visit is the setup page, which creates the admin
 account; everyone else is added under *Settings → Users*. Everything the app stores lands in
 `./data` next to the compose file — back that directory up and you have backed up the app.
 
@@ -92,7 +92,7 @@ credentials and how `.env` is read — is documented in **[docs/configuration.md
 
 ### Reverse proxy
 
-The container speaks plain HTTP and publishes to `127.0.0.1:8080` only. Put a TLS-terminating
+The container speaks plain HTTP and publishes port `9871` on every interface. Put a TLS-terminating
 reverse proxy (Caddy, nginx, Traefik) in front of it — HTTPS is what makes the PWA installable —
 and set `TRUSTED_PROXIES` to the proxy's address.
 

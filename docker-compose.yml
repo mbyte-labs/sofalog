@@ -1,24 +1,11 @@
-# sofalog — single app container behind whatever reverse proxy terminates TLS.
-# The bundled Caddy setup is a separate file and still outstanding for M0.
+# sofalog — one app container behind a TLS-terminating reverse proxy.
 #
-# Two ways to get the image, same service either way:
+#   docker compose up -d            pull the published image (amd64 + arm64)
+#   docker compose up -d --build    build it from this checkout instead
 #
-#   docker compose up -d            pulls ghcr.io/mbyte-labs/sofalog:latest, the
-#                                   image .github/workflows/docker.yml publishes
-#                                   on every v*.*.* tag on main (amd64 and arm64)
-#   docker compose up -d --build    builds the Dockerfile from this checkout and
-#                                   tags the result with the same name, so the
-#                                   rest of this file does not care which one
-#                                   produced it
-#
-# Secrets are never written in this file. The TMDB credential comes from the host
-# environment or from a .env in this directory (gitignored, see env.example) —
-# set either TMDB_API_KEY_V3 or TMDB_API_KEY_V4, not both:
+# Settings come from ./.env (gitignored; start from env.example). No secrets here.
 #
 #   cp env.example .env && $EDITOR .env && docker compose up -d
-#
-# Compose reads ./.env itself for the ${...} interpolation below, and the same
-# file also works for `cd server && go run .` — one file per checkout.
 
 services:
   app:
@@ -28,43 +15,32 @@ services:
     image: ghcr.io/mbyte-labs/sofalog:latest
     restart: unless-stopped
     environment:
-      # The absolute external URL users reach the app at. The only source of
-      # truth for absolute links, the PWA manifest, OIDC redirects and the
-      # cookie Secure flag — never derived from request headers.
-      BASE_URL: ${BASE_URL:-http://localhost:8080}
-      # Runtime volume inside the container; the host side is the bind mount below.
+      # Public URL users reach the app at. Links, OIDC redirects and the cookie
+      # Secure flag all derive from it.
+      BASE_URL: ${BASE_URL:-http://localhost:9871}
       DATA_DIR: /data
-      # Provider credentials. The :- default keeps `docker compose config` working
-      # when nothing is set: absent means adding items fails, browsing does not.
-      # TMDB issues two interchangeable credentials — the v3 "API Key" and the v4
-      # "API Read Access Token". One is enough; v4 wins if both are present.
+      # TMDB: set one of the two (v4 wins if both are set). Without a key,
+      # browsing works but adding items fails.
       TMDB_API_KEY_V3: ${TMDB_API_KEY_V3:-}
       TMDB_API_KEY_V4: ${TMDB_API_KEY_V4:-}
       STEAM_API_KEY: ${STEAM_API_KEY:-}
-      # Set to the proxy's address (CIDR or IP, comma separated) once one is in
-      # front of this container. Empty means X-Forwarded-* is ignored entirely.
+      # The reverse proxy's IP or CIDR, comma separated. Empty ignores
+      # X-Forwarded-* headers.
       TRUSTED_PROXIES: ${TRUSTED_PROXIES:-}
-      # Single sign-on. Setting all three of ISSUER/CLIENT_ID/CLIENT_SECRET
-      # turns OIDC on and DISABLES the built-in email/password login
-      # entirely — the provider becomes the only way in. Setting only some of
-      # them is a startup error rather than a silent fallback to passwords.
-      #
-      # Register this exact redirect URI with the provider:
-      #   ${BASE_URL:-http://localhost:8080}/api/v1/auth/oidc/callback
-      # It is derived from BASE_URL, and the server logs it at startup.
+      # OIDC: set all three or none. Enabling it disables password login.
+      # Redirect URI to register: <BASE_URL>/api/v1/auth/oidc/callback
       OIDC_ISSUER: ${OIDC_ISSUER:-}
       OIDC_CLIENT_ID: ${OIDC_CLIENT_ID:-}
       OIDC_CLIENT_SECRET: ${OIDC_CLIENT_SECRET:-}
-      # Which IdP group or role grants admin, re-read on every sign-in so the
-      # provider stays authoritative. Both empty means nobody becomes admin.
+      # Optional: the claim and value that grant admin.
       OIDC_ADMIN_CLAIM: ${OIDC_ADMIN_CLAIM:-}
       OIDC_ADMIN_VALUE: ${OIDC_ADMIN_VALUE:-}
-      # Optional. Defaults to "openid profile email" and "single sign-on".
+      # Optional: default "openid profile email" and "single sign-on".
       OIDC_SCOPES: ${OIDC_SCOPES:-}
       OIDC_PROVIDER_NAME: ${OIDC_PROVIDER_NAME:-}
     volumes:
       - ./data:/data
     ports:
-      # Bind to loopback only: a reverse proxy fronts this, and the container
-      # speaks plain HTTP.
-      - '127.0.0.1:8080:8080'
+      # Plain HTTP on every interface, for a proxy on another machine. Docker
+      # bypasses ufw, so restrict access to this port another way.
+      - '9871:8080'

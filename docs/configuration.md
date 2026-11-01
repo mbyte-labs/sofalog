@@ -91,7 +91,7 @@ secrets does not also block the template.
 
 ## Reverse proxy
 
-The server speaks plain HTTP and the Docker container publishes to `127.0.0.1:8080` only. Put a
+The server speaks plain HTTP and the Docker container publishes port `9871` on every interface. Put a
 reverse proxy that terminates TLS in front of it — HTTPS is required for the PWA service worker —
 and set `TRUSTED_PROXIES` to the proxy's address so the real client IP reaches the session table.
 Until then `X-Forwarded-*` headers are ignored entirely, which is the safe default. No proxy
