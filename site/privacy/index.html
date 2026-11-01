@@ -1,0 +1,290 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Privacy policy — sofalog</title>
+    <meta
+      name="description"
+      content="What the sofalog app stores on your device, what it sends to the sofalog server you connect it to, and which outside services that server talks to."
+    />
+    <meta name="theme-color" content="#1f1e1d" />
+    <meta name="color-scheme" content="dark" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" href="../logo.svg" type="image/svg+xml" />
+    <link
+      rel="icon"
+      href="../icons/icon-192.png"
+      type="image/png"
+      sizes="192x192"
+    />
+    <link rel="apple-touch-icon" href="../icons/apple-touch-icon.png" />
+    <link rel="stylesheet" href="../site.css" />
+  </head>
+  <body>
+    <header class="doc-head">
+      <div class="wrap narrow">
+        <a class="brand" href="../">
+          <img
+            class="brand-mark"
+            src="../logo.svg"
+            alt=""
+            width="38"
+            height="38"
+          />
+          <span class="brand-name">sofalog</span>
+        </a>
+      </div>
+    </header>
+
+    <main class="doc">
+      <article class="wrap narrow">
+        <p class="kicker">Privacy policy</p>
+        <h1>What sofalog does with your data</h1>
+        <p class="meta">
+          Effective 1 November 2026 · applies to the sofalog app for Android and
+          the web app it opens
+        </p>
+
+        <p class="lede">
+          sofalog is a self-hosted media tracker. The app is a client for a
+          sofalog
+          <em>server that you, or someone in your household, runs</em>. The
+          developer of sofalog operates no server for it, has no account system
+          of its own and never receives, sees or stores anything you do in the
+          app. Everything below describes where your data goes instead: your
+          device, the server you connect to, and the outside services that
+          server talks to on your behalf.
+        </p>
+
+        <h2>In short</h2>
+        <ul>
+          <li>
+            The app contains no analytics, advertising, crash-reporting or
+            tracking code.
+          </li>
+          <li>
+            It sends data to one place: the sofalog server whose address you
+            open it at.
+          </li>
+          <li>
+            That server is run by its administrator, not by the developer. They
+            hold your account and your library, and this policy tells you what
+            that is.
+          </li>
+          <li>
+            Your phone never talks to TMDB, YouTube, Jellyfin or Steam directly.
+            The server does, and only for the purposes listed below.
+          </li>
+        </ul>
+
+        <h2>On your device</h2>
+        <p>The app keeps three things on the phone, and nothing else:</p>
+        <ul>
+          <li>
+            <strong>A session cookie</strong>, an opaque random value that keeps
+            you signed in. It identifies your session on your server and carries
+            no personal data itself.
+          </li>
+          <li>
+            <strong>A cache of the app and of pages you have viewed</strong>,
+            including poster images, so that the app opens and shows what you
+            last looked at while offline. It is cleared when you clear the app's
+            data or uninstall it.
+          </li>
+          <li><strong>The server address</strong> you connect to.</li>
+        </ul>
+        <p>
+          The app asks for no device permissions beyond network access, and
+          reads no contacts, location, files, photos or identifiers.
+        </p>
+
+        <h2>On the server you connect to</h2>
+        <p>
+          Everything you do in the app is stored on that server, in its database
+          and on its disk. This is what it holds about you:
+        </p>
+        <ul>
+          <li>
+            <strong>Your account</strong>: your email address, which is your
+            sign-in identity; an optional display name; and either a password,
+            stored only as an argon2id hash, or nothing when the server uses
+            single sign-on. An administrator can also set a time zone and, for
+            the games feature, a Steam id you give them.
+          </li>
+          <li>
+            <strong>Your sign-ins</strong>: for each session, when it was
+            created, the browser or app identifier your device sent, and the IP
+            address the connection came from. A session expires after 30 days
+            without use, and logging out deletes it.
+          </li>
+          <li>
+            <strong>Request logs</strong>: like most servers, sofalog writes one
+            log line per request with the path, the result, the time taken and
+            the client IP address. Where those lines go and how long they are
+            kept is up to the server's administrator.
+          </li>
+          <li>
+            <strong>Your library</strong>: every movie and episode you mark
+            watched, with the date and time you gave it; your ratings; your
+            watchlist, favorites and dropped shows; the formats and services you
+            say you own an item on; your time zone; and whether you opted into
+            matching watchlists.
+          </li>
+          <li>
+            <strong>A TMDB link, if you make one</strong>: the session id TMDB
+            issues when you approve the link, your TMDB account id and username,
+            and which of ratings, watchlist and favorites you chose to keep in
+            sync. See the TMDB section below.
+          </li>
+        </ul>
+
+        <h2>Who can see it</h2>
+        <ul>
+          <li>
+            <strong>You.</strong> Your library is yours alone. Another user of
+            the same server sees none of your history, ratings or lists.
+          </li>
+          <li>
+            <strong>The server's administrator</strong> manages the accounts on
+            it and can see their email addresses and display names under
+            Settings → Users. As the operator of the server they also hold the
+            database, the artwork and the logs, and are the person to ask about
+            how long anything is kept.
+          </li>
+          <li>
+            <strong>Other users, only if you opt in.</strong> The one sharing
+            feature is matching watchlists: when you switch it on in your
+            account settings, another user can see which titles are on
+            <em>both</em> of your watchlists, and nothing else. It is off by
+            default, and only you can turn it on.
+          </li>
+          <li>
+            <strong>The developer of sofalog: nothing.</strong> There is no
+            telemetry, no update check and no call home of any kind.
+          </li>
+        </ul>
+
+        <h2>Outside services the server talks to</h2>
+        <p>
+          The app itself contacts only your server. Your server contacts the
+          services below, and each one sees only what is stated here. None of
+          them receives your account, your library or your watch history, with
+          the single exception of a TMDB account you choose to link.
+        </p>
+        <ul>
+          <li>
+            <strong>TMDB</strong> (themoviedb.org) provides the metadata and
+            artwork for movies and shows. The server sends it the search terms
+            you type and the ids of the titles it fetches, using the
+            administrator's API key. Posters and other images are downloaded by
+            the server and served to you from there, so your device never loads
+            anything from TMDB. The "where to watch" listings TMDB provides are
+            sourced by TMDB from JustWatch; sofalog never contacts JustWatch.
+          </li>
+          <li>
+            <strong>Your own TMDB account, only if you link it.</strong> Linking
+            happens on TMDB's own website, where you approve or refuse it;
+            sofalog never sees your TMDB password. If you then turn on syncing,
+            the server sends your ratings, your watchlist and your favorites to
+            your TMDB account, and can read those same lists from it once, when
+            you ask. Your watch history is never sent. Unlinking stops all of
+            this and deletes the link from the server; what was already written
+            to TMDB stays there, under TMDB's own privacy policy.
+          </li>
+          <li>
+            <strong>YouTube</strong> supplies the thumbnail images of trailers.
+            The server fetches each image once and serves it to you itself; your
+            device never contacts YouTube, and no video plays inside the app.
+          </li>
+          <li>
+            <strong>Jellyfin</strong>, if the administrator connected one, is
+            their own media server. sofalog reads which movies and seasons it
+            holds, so that the app can show them as available, and never what
+            anyone has played.
+          </li>
+          <li>
+            <strong>A single sign-on provider</strong>, if the administrator
+            configured one, handles your sign-in instead of a password. sofalog
+            receives your verified email address and, when offered, your name,
+            and nothing else. The provider's own privacy policy governs what it
+            keeps.
+          </li>
+          <li>
+            <strong>Steam</strong>, once the games feature ships, will be read
+            by the server with the Steam id you provide, to list your games,
+            hours and achievements. Nothing is written to Steam.
+          </li>
+        </ul>
+
+        <h2>Your choices and deleting your data</h2>
+        <ul>
+          <li>
+            You can change your display name, time zone and password, turn
+            matching watchlists on or off, and unlink your TMDB account at any
+            time under Settings.
+          </li>
+          <li>
+            You can remove any single watch entry, rating, list entry or owned
+            copy from its page.
+          </li>
+          <li>
+            Logging out deletes that session on the server. Uninstalling the app
+            removes everything it kept on your device.
+          </li>
+          <li>
+            To delete your account, ask the server's administrator, who removes
+            it under Settings → Users. Deleting an account deletes it together
+            with every session, watch, rating, list entry, copy and TMDB link
+            stored with it. Server logs that mention your IP address are kept or
+            rotated according to the administrator's own practice.
+          </li>
+        </ul>
+
+        <h2>Children</h2>
+        <p>
+          sofalog is not directed at children under 13, and the developer does
+          not knowingly collect information from anyone. Who may hold an account
+          on a given server is the administrator's decision.
+        </p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          When this page changes, the date at the top changes with it. The full
+          history of every revision is public in the project's
+          <a
+            href="https://github.com/mbyte-labs/sofalog/commits/main/site/privacy/index.html"
+            >source repository</a
+          >.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions about this policy or about the app go to the project's
+          <a href="https://github.com/mbyte-labs/sofalog/issues"
+            >issue tracker on GitHub</a
+          >. Questions about a particular server, its accounts or its logs go to
+          that server's administrator.
+        </p>
+      </article>
+    </main>
+
+    <footer>
+      <div class="wrap footer-grid">
+        <p>
+          sofalog is free software under the
+          <a href="https://github.com/mbyte-labs/sofalog/blob/main/LICENSE"
+            >GNU Affero General Public License v3.0 or later</a
+          >.
+        </p>
+        <nav aria-label="Project links">
+          <a href="../">Home</a>
+          <a href="https://github.com/mbyte-labs/sofalog">GitHub</a>
+          <a href="https://github.com/mbyte-labs/sofalog/tree/main/docs"
+            >Documentation</a
+          >
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

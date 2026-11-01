@@ -40,6 +40,11 @@ repository; if GitHub refuses the token that right, enable it once under **Setti
 Source: GitHub Actions** and re-run. The repository's homepage URL is set by hand in the same
 settings.
 
+The site has a second page, `site/privacy/index.html`, published at
+<https://mbyte-labs.github.io/sofalog/privacy/>: the privacy policy the Google Play listing and the
+app's Settings → Data Sources page link to. Play Console stores that URL, so the path must never
+move; a change to the text updates the effective date at the top of the page.
+
 To preview locally, assemble into any directory and serve it:
 
 ```bash
