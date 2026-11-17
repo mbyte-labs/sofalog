@@ -97,7 +97,8 @@ wrapping around (specials neither anchor the pick nor become it). **The pick del
 airedness**: an unaired or undated next episode is served with the additive `episode.aired` flag
 false (computed server-side against the user's today in their zone, D-038 — the client never
 derives it) and the card stacks an
-"Upcoming" badge under the marker badge; `only_released` is where `EligibleEpisode` is spliced, and
+"Airs 19.11.2026" badge — plain "Upcoming" when the episode is undated; the client formats
+`air_date`, never compares it — under the marker badge; `only_released` is where `EligibleEpisode` is spliced, and
 it lands after the pick, so an unaired pick filters to nothing rather than falling back to a later
 aired episode. Ordering, nulls-last and the name/id tie-break follow `listWatchlistTargets`'s
 compile-time-constant pattern. A card leads to the episode details page, which is why the entry

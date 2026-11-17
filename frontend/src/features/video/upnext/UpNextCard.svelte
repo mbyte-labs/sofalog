@@ -1,5 +1,6 @@
 <script>
   import { GRID_POSTER_SIZES, assetUrl, posterSrcset } from '../../../lib/images.js'
+  import { formatDayNumeric } from '../common/format.js'
   import { hueFor, initialsFor } from '../common/posterPlaceholder.js'
   import { episodeCode } from './upNext.js'
 
@@ -49,7 +50,11 @@
           <span class="marker {episode.marker}">{MARKER_LABELS[episode.marker]}</span>
         {/if}
         {#if !episode.aired}
-          <span class="marker upcoming">Upcoming</span>
+          <!-- Whether it has aired is the server's flag (D-038); the date is
+               only formatted here, never compared with today. -->
+          <span class="marker upcoming">
+            {episode.air_date ? `Airs ${formatDayNumeric(episode.air_date)}` : 'Upcoming'}
+          </span>
         {/if}
       </div>
     {/if}
@@ -208,7 +213,8 @@
   }
 
   /* The marker badges stack in the top-left corner — a season marker first,
-     the server-computed "Upcoming" flag underneath when both apply. Only the
+     the server-computed unaired flag ("Airs 19.11.2026", or "Upcoming" when
+     undated) underneath when both apply. Only the
      stack's last badge rounds its inner corner, so the column reads as one
      block flush against the poster edge. */
   .corner {
