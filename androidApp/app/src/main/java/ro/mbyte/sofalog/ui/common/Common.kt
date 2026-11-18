@@ -64,7 +64,7 @@ fun formatInstant(instant: String): String = runCatching {
     Instant.parse(instant).atZone(ZoneId.systemDefault()).format(instantFormat)
 }.getOrDefault(instant)
 
-fun episodeCode(season: Int, number: Int): String = "S$season E$number"
+fun episodeCode(season: Int, number: Int): String = "S${season}xE$number"
 
 fun formatRuntime(minutes: Int?): String? = minutes?.let {
     if (it >= 60) "${it / 60}h ${it % 60}m" else "${it}m"

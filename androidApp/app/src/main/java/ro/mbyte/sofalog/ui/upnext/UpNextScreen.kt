@@ -36,6 +36,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -150,7 +151,7 @@ fun UpNextScreen(onOpenShow: (Long) -> Unit, onSearch: () -> Unit, onAbout: () -
 
 private fun episodeLine(item: UpNextItem): String {
     val code = episodeCode(item.episode.seasonNumber, item.episode.episodeNumber)
-    return item.episode.title?.let { "$code · $it" } ?: code
+    return item.episode.title?.let { "$code $it" } ?: code
 }
 
 @Composable
@@ -180,23 +181,14 @@ private fun UpNextCard(item: UpNextItem, onClick: () -> Unit) {
                 }
             }
         }
-        Text(
-            item.show.title,
-            style = MaterialTheme.typography.titleSmall,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 6.dp),
-        )
+        // The episode alone, centered — the poster names the show, as on the web card.
         Text(
             episodeLine(item),
-            style = MaterialTheme.typography.bodySmall,
+            style = MaterialTheme.typography.titleSmall,
+            textAlign = TextAlign.Center,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
-        )
-        Text(
-            "${item.progress.watched} / ${item.progress.airedTotal} watched",
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         )
     }
 }
