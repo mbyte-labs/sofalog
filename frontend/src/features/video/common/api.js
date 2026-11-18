@@ -22,14 +22,18 @@ import { api } from '../../../lib/api/client.js'
  *   rating: number | null,
  *   marker: 'season_premiere' | 'mid_season_finale' | 'season_finale' | null,
  *   aired: boolean,
+ *   airs_today: boolean,
  * }} episode `season_id` is the local `seasons.id` and the only handle here
  *   that addresses anything — an episode has no id-addressed endpoint, so its
  *   details page is reached by `season_id` plus `number`. Null only if the
  *   season row is gone, which the catalog write order makes unreachable.
  *   `rating` is the TMDB community score from the stored metadata snapshot
  *   (0–10), not a user rating — up-next episodes are unwatched. `aired` is
- *   computed server-side against UTC today (false for a future or unknown air
- *   date); the card renders the "Upcoming" badge from it and never derives it
+ *   computed server-side against the user's today (false for a future or
+ *   unknown air date); the card renders the "Upcoming" badge from it and never
+ *   derives it. `airs_today` is the server's "the air date is the user's
+ *   today" — such an episode is already `aired`, so the "Airs today" badge
+ *   reads this flag instead
  * @property {string | null} last_watched_at when this user last watched any
  *   episode of the show, RFC3339 UTC — the maximum `watched_at` over the
  *   watch log, so it carries the same precision as its source. Only started

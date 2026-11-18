@@ -85,6 +85,9 @@ func TestGetUpNext(t *testing.T) {
 		if aired, ok := episode["aired"].(bool); !ok || aired {
 			t.Errorf("aired = %v, want the boolean false", episode["aired"])
 		}
+		if today, ok := episode["airs_today"].(bool); !ok || today {
+			t.Errorf("airs_today = %v, want the boolean false", episode["airs_today"])
+		}
 		if lw, ok := entry["last_watched_at"].(string); !ok || lw != "2026-08-01T20:00:00Z" {
 			t.Errorf("last_watched_at = %v, want the watch instant", entry["last_watched_at"])
 		}

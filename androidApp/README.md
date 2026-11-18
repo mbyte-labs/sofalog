@@ -16,7 +16,13 @@ then the server's snapshot replacing local state). No background work, notificat
 **What exists today is the first slice of phase 1 (standalone):** Up Next, TMDB search, movie,
 show and season pages, tracking a show, marking movies and episodes watched (now), the whole-show
 and whole-season bulk marks, removing a watch, and the data-sources screen with the TMDB notice.
-Not yet: dated watches, ratings, lists, history, upcoming, stats, discover, dropping a show, the
+An Up Next card opens the episode page on a tap — a placeholder for now — and on a long-press
+opens a bottom sheet offering "Mark as watched" and "Check in" (also a placeholder: it writes
+nothing). "Mark as watched" there asks for an optional rating (1–10, stored in
+`user_video_ratings`) and when the watch happened: now, the release date (midnight that day in the
+device's zone) or a picked date and time, never in the future.
+Not yet: the episode page's content, check-in, showing or editing ratings, dated watches anywhere
+but that sheet, lists, history, upcoming, stats, discover, dropping a show, the
 backup file, and everything about linking to a server.
 
 ## TMDB key

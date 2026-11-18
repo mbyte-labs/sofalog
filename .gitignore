@@ -60,6 +60,9 @@ androidApp/**/.kotlin/
 # directory, so `cd server && go run .` creates server/data/ — a leading-slash
 # pattern would only have caught the repo root.
 data/
+# ...but a source package named `data` is code, not the volume: the Android app's
+# `ro.mbyte.sofalog.data` (database, DAO, repository, TMDB client) lives under one.
+!/androidApp/app/src/**/data/
 
 # ---> Local binaries (`cd server && go build .` drops the binary in server/)
 /sofalog

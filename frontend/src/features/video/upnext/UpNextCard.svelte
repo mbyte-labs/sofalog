@@ -44,12 +44,16 @@
     {#if episode.rating != null}
       <span class="rating"><span class="heart">♥</span> {episode.rating.toFixed(1)}</span>
     {/if}
-    {#if episode.marker || !episode.aired}
+    {#if episode.marker || !episode.aired || episode.airs_today}
       <div class="corner">
         {#if episode.marker}
           <span class="marker {episode.marker}">{MARKER_LABELS[episode.marker]}</span>
         {/if}
-        {#if !episode.aired}
+        {#if episode.airs_today}
+          <!-- Today's episode already reads as aired, so it has its own
+               server flag (D-038) — never a client-side date comparison. -->
+          <span class="marker upcoming">Airs today</span>
+        {:else if !episode.aired}
           <!-- Whether it has aired is the server's flag (D-038); the date is
                only formatted here, never compared with today. -->
           <span class="marker upcoming">

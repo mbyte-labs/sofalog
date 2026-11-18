@@ -1,7 +1,7 @@
 package ro.mbyte.sofalog.ui.upnext
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -13,10 +13,11 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -29,6 +30,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -50,17 +52,22 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.time.Instant
 import ro.mbyte.sofalog.data.UpNextItem
 import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.ui.common.CenteredLoading
 import ro.mbyte.sofalog.ui.common.CenteredMessage
 import ro.mbyte.sofalog.ui.common.Poster
+import ro.mbyte.sofalog.ui.common.WatchLogForm
 import ro.mbyte.sofalog.ui.common.attempt
 import ro.mbyte.sofalog.ui.common.episodeCode
 import ro.mbyte.sofalog.ui.common.formatDay
 import ro.mbyte.sofalog.ui.common.repository
 import ro.mbyte.sofalog.ui.common.userMessage
+import ro.mbyte.sofalog.domain.Clock
 import ro.mbyte.sofalog.domain.EpisodeMarker
+import ro.mbyte.sofalog.domain.EpisodeRef
+import ro.mbyte.sofalog.domain.airsToday
 import ro.mbyte.sofalog.ui.theme.AirsBadge
 import ro.mbyte.sofalog.ui.theme.FinaleBadge
 import ro.mbyte.sofalog.ui.theme.OnBadge
@@ -73,10 +80,17 @@ class UpNextViewModel(private val repo: VideoRepository) : ViewModel() {
 
     val error = MutableStateFlow<String?>(null)
 
-    fun markWatched(item: UpNextItem) {
+    /** [watchedAt] null is "now"; [rating] null leaves the episode's rating alone. */
+    fun markWatched(item: UpNextItem, watchedAt: Instant?, rating: Int?) {
         viewModelScope.launch {
             attempt {
-                repo.markEpisodeWatched(item.show.tmdbId, item.episode.seasonNumber, item.episode.episodeNumber)
+                repo.markEpisodeWatched(
+                    item.show.tmdbId,
+                    item.episode.seasonNumber,
+                    item.episode.episodeNumber,
+                    watchedAt,
+                    rating,
+                )
             }.onFailure { error.value = it.userMessage() }
         }
     }
@@ -84,13 +98,20 @@ class UpNextViewModel(private val repo: VideoRepository) : ViewModel() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun UpNextScreen(onOpenShow: (Long) -> Unit, onSearch: () -> Unit, onAbout: () -> Unit) {
+fun UpNextScreen(
+    onOpenEpisode: (showTmdbId: Long, season: Int, episode: Int) -> Unit,
+    onSearch: () -> Unit,
+    onMenu: () -> Unit,
+) {
     val repo = repository()
     val vm: UpNextViewModel = viewModel(factory = viewModelFactory { initializer { UpNextViewModel(repo) } })
     val items by vm.items.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
     var chosen by remember { mutableStateOf<UpNextItem?>(null) }
+    // The sheet's second step: the mark-as-watched form in place of the two actions.
+    var marking by remember { mutableStateOf(false) }
 
     LaunchedEffect(error) {
         error?.let { snackbar.showSnackbar(it); vm.error.value = null }
@@ -100,7 +121,7 @@ fun UpNextScreen(onOpenShow: (Long) -> Unit, onSearch: () -> Unit, onAbout: () -
         topBar = {
             TopAppBar(
                 title = { Text("Up Next") },
-                actions = { TextButton(onClick = onAbout) { Text("About") } },
+                navigationIcon = { TextButton(onClick = onMenu) { Text("☰") } },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
@@ -121,31 +142,68 @@ fun UpNextScreen(onOpenShow: (Long) -> Unit, onSearch: () -> Unit, onAbout: () -
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(list, key = { it.show.id }) { item -> UpNextCard(item) { chosen = item } }
+                items(list, key = { it.show.id }) { item ->
+                    UpNextCard(
+                        item,
+                        onClick = {
+                            onOpenEpisode(item.show.tmdbId, item.episode.seasonNumber, item.episode.episodeNumber)
+                        },
+                        onLongClick = { marking = false; chosen = item },
+                    )
+                }
             }
         }
     }
 
     chosen?.let { item ->
-        AlertDialog(
+        // Not dismissed by hand below: clearing `chosen` removes the sheet, as it did the dialog.
+        ModalBottomSheet(
             onDismissRequest = { chosen = null },
-            title = { Text(item.show.title) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text(episodeLine(item))
-                    Button(
-                        onClick = { vm.markWatched(item); chosen = null },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Mark as watched") }
-                    OutlinedButton(
-                        onClick = { chosen = null; onOpenShow(item.show.tmdbId) },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) { Text("Open show") }
-                }
-            },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = { chosen = null }) { Text("Cancel") } },
-        )
+            // The form is taller than half a screen; never open it half-way.
+            sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        ) {
+            if (marking) {
+                WatchLogForm(
+                    title = item.show.title,
+                    subtitle = episodeLine(item),
+                    airDate = item.episode.airDate,
+                    onConfirm = { watchedAt, rating ->
+                        vm.markWatched(item, watchedAt, rating)
+                        chosen = null
+                    },
+                    modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                )
+            } else Column(
+                Modifier.fillMaxWidth().padding(start = 24.dp, end = 24.dp, bottom = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Text(
+                    item.show.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    textAlign = TextAlign.Center,
+                )
+                // The card's own line, so the sheet names the episode exactly as the grid does.
+                Text(
+                    episodeLine(item),
+                    style = MaterialTheme.typography.titleSmall,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                Button(
+                    onClick = { marking = true },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Mark as watched") }
+                OutlinedButton(
+                    // A placeholder: check-in is not built, so this writes nothing.
+                    onClick = {
+                        chosen = null
+                        scope.launch { snackbar.showSnackbar("Check-in isn't available yet.") }
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("Check in") }
+            }
+        }
     }
 }
 
@@ -155,18 +213,30 @@ private fun episodeLine(item: UpNextItem): String {
 }
 
 @Composable
-private fun UpNextCard(item: UpNextItem, onClick: () -> Unit) {
-    Column(Modifier.clickable(onClick = onClick)) {
+private fun UpNextCard(item: UpNextItem, onClick: () -> Unit, onLongClick: () -> Unit) {
+    Column(Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
         // Clipped to the poster's own shape, so the corner badges follow its rounded corner —
         // the web card's `.corner` block.
         Box(Modifier.clip(PosterShape)) {
             Poster(item.posterPath, item.show.title, Modifier.fillMaxWidth())
             // Tabs stacked into the top-left corner, touching: the air date first, then the marker.
-            if (!item.aired || item.marker != null) {
+            // Today's episode already counts as aired, so "not aired" cannot badge it. Read here
+            // rather than carried on UpNextItem; re-read whenever the list hands over a new item.
+            val airsToday = remember(item) {
+                val e = item.episode
+                EpisodeRef(e.id, e.seasonNumber, e.episodeNumber, e.airDate)
+                    .airsToday(Clock.System.read().today)
+            }
+            val airs = when {
+                airsToday -> "Airs today"
+                !item.aired -> formatDay(item.episode.airDate)?.let { "Airs $it" } ?: "Upcoming"
+                else -> null
+            }
+            if (airs != null || item.marker != null) {
                 Column(Modifier.align(Alignment.TopStart)) {
-                    if (!item.aired) {
+                    if (airs != null) {
                         PosterTab(
-                            formatDay(item.episode.airDate)?.let { "Airs $it" } ?: "Upcoming",
+                            airs,
                             AirsBadge,
                             last = item.marker == null,
                         )

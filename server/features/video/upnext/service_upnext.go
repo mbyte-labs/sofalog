@@ -54,6 +54,11 @@ type UpNextEpisode struct {
 	// false for a future or unknown air date. The card renders its "Upcoming"
 	// badge from this; the client never derives it.
 	Aired bool `json:"aired"`
+	// Whether the episode's air date IS the user's today (D-038). Such an
+	// episode already reads as aired — D-012's predicate is "on or before
+	// today" — so this is the separate fact the card's "Airs today" badge
+	// needs; like Aired, the client never derives it.
+	AirsToday bool `json:"airs_today"`
 }
 
 type UpNextProgress struct {
@@ -133,12 +138,13 @@ func (s *Service) UpNext(ctx context.Context, userID int64, p UpNextParams) ([]U
 		entry := UpNextEntry{
 			Show: UpNextShow{ID: r.ShowID, Name: r.ShowTitle},
 			Episode: UpNextEpisode{
-				ID:       r.EpisodeID,
-				SeasonID: r.SeasonID,
-				Season:   r.SeasonNumber,
-				Number:   r.EpisodeNumber,
-				AirDate:  r.AirDate,
-				Aired:    r.AirDate != nil && *r.AirDate <= today,
+				ID:        r.EpisodeID,
+				SeasonID:  r.SeasonID,
+				Season:    r.SeasonNumber,
+				Number:    r.EpisodeNumber,
+				AirDate:   r.AirDate,
+				Aired:     r.AirDate != nil && *r.AirDate <= today,
+				AirsToday: r.AirDate != nil && *r.AirDate == today,
 			},
 		}
 		if r.EpisodeTitle != nil {

@@ -25,6 +25,12 @@ fun EpisodeRef.isEligible(today: String): Boolean =
     season > 0 && airDate != null && airDate <= today
 
 /**
+ * The server's `airs_today`: the air date IS [today]. Such an episode is already eligible (aired
+ * means on or before today), so the Up Next card's "Airs today" badge needs this separate fact.
+ */
+fun EpisodeRef.airsToday(today: String): Boolean = airDate == today
+
+/**
  * The server's RecomputeShowStatus, statement for statement: ensure, demote, promote, collapse.
  * Returns the status afterwards; null means no state row. `dropped` is the user's own value and
  * passes through untouched (D-010).

@@ -98,7 +98,10 @@ airedness**: an unaired or undated next episode is served with the additive `epi
 false (computed server-side against the user's today in their zone, D-038 — the client never
 derives it) and the card stacks an
 "Airs 19.11.2026" badge — plain "Upcoming" when the episode is undated; the client formats
-`air_date`, never compares it — under the marker badge; `only_released` is where `EligibleEpisode` is spliced, and
+`air_date`, never compares it — under the marker badge. **An episode dated today is already
+`aired`** (the predicate is on-or-before), so it carries its own additive flag,
+`episode.airs_today`, from the same clock reading, and the card badges it "Airs today" in the same
+slot; the Android card applies the same rule on the device (`EpisodeRef.airsToday`). `only_released` is where `EligibleEpisode` is spliced, and
 it lands after the pick, so an unaired pick filters to nothing rather than falling back to a later
 aired episode. Ordering, nulls-last and the name/id tie-break follow `listWatchlistTargets`'s
 compile-time-constant pattern. A card leads to the episode details page, which is why the entry
