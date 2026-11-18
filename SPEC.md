@@ -123,6 +123,8 @@ frontend/              Svelte SPA (Vite)
 androidApp/            Android app (its own Gradle project: Kotlin + Jetpack Compose): video only,
                        local-first with its own database, standalone or linked to a server
                        through /api/v1 (D-040). See androidApp/README.md
+fixtures/video-rules/  JSON cases for the rules that exist in both Go and Kotlin (D-040); both
+                       test suites run them
 ```
 
 ### Layering inside a feature package

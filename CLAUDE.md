@@ -810,7 +810,12 @@ Go **and** Kotlin and are held together by shared JSON fixtures both test suites
 rule on one side, change the fixture and the other side. **No background work, notifications or
 widgets; no games; no Jellyfin, matching, TMDB-account or restore screens.** Delivery is three
 phases — standalone app, then the server side (tokens, `episodes.tmdb_id`, snapshot, command
-batch), then linking; it is still a hello-world shell today. Adding a Gradle dependency requires
+batch), then linking. **Phase 1's first slice is built** (Room database, TMDB client, Up Next,
+search, movie/show/season pages, marking and bulk marking, watch removal); what is and is not
+there yet is listed in `androidApp/README.md`. The shared cases live in `fixtures/video-rules/`
+and are run by `RuleFixturesTest` (Kotlin) and by `status_fixtures_test.go` /
+`upnext/fixtures_test.go` (Go). The TMDB key comes from `tmdb.apiKey` in the gitignored
+`androidApp/local.properties`. Adding a Gradle dependency requires
 asking first, like a Go module or an npm package.
 
 - Media components live under `server/features/`: `features/video` (movies + shows together) and

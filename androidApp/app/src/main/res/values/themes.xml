@@ -1,5 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
 
-    <style name="Theme.Sofalog" parent="android:Theme.Material.Light.NoActionBar" />
+    <!-- Dark only: the window behind Compose (and the launch screen) never flashes white. -->
+    <style name="Theme.Sofalog" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
 </resources>

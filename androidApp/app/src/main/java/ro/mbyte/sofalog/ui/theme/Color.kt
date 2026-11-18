@@ -6,6 +6,11 @@ val Purple80 = Color(0xFFD0BCFF)
 val PurpleGrey80 = Color(0xFFCCC2DC)
 val Pink80 = Color(0xFFEFB8C8)
 
-val Purple40 = Color(0xFF6650a4)
-val PurpleGrey40 = Color(0xFF625b71)
-val Pink40 = Color(0xFF7D5260)
+/*
+ * Up Next poster tabs. Every tab carries the same white text. The Airs amber is a shade deeper
+ * than a pure yellow so the white stays legible on it; both finales share one red.
+ */
+val AirsBadge = Color(0xFFD9A21B)
+val FinaleBadge = Color(0xFFC0413F)
+val SeasonPremiereBadge = Color(0xFF3A9A5B)
+val OnBadge = Color.White
