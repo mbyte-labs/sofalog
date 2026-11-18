@@ -46,6 +46,13 @@ server/web/dist/*
 !server/web/dist/.gitkeep
 !server/web/dist/index.html
 
+# ---> Android app (androidApp/). Android Studio's own .gitignore files in there
+# cover build output, local.properties and most IDE state; these are the gaps.
+# Keystores are signing secrets and are ignored wherever they are dropped.
+androidApp/**/.kotlin/
+*.jks
+*.keystore
+
 # ---> Runtime data volume: SQLite DB, downloaded assets, provider cache.
 # Never commit. Scoped to the directory rather than *.db so test fixtures survive
 # (Go fixtures live in testdata/ by convention, which this does not match).

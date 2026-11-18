@@ -15,13 +15,13 @@ updates `SPEC.md` in the same commit — never leave the two disagreeing.
 ## Current milestone: M4 (games)
 
 Build only what the current milestone lists in [`SPEC.md` §8](SPEC.md#8-milestones). Do not start
-API tokens or export before the active milestone closes. M1.5 and M2 are closed. **M3 (books) was
+export before the active milestone closes; API tokens belong to the Android track's phase 2 (D-040). M1.5 and M2 are closed. **M3 (books) was
 withdrawn** (D-035): the product tracks video and games only. There is no books package, no books
 table, no Open Library client and no `/books` route, and none is to be added without a new decision.
 Update this line when a milestone closes.
 
 **Five things were pulled forward on request.** **OIDC login**, from M5 into M1: configuring a
-provider **disables local authentication entirely** (D-018); API tokens and export remain M5.
+provider **disables local authentication entirely** (D-018); export remains M5, and API tokens moved to the Android track (D-040).
 **Show tracking**, from M2 into M1.5 — because a show page whose "Mark As Watched" is permanently
 disabled is a dead end. **Show watchlisting**, from M2 into M1.5 for the same reason: a
 permanently disabled button is a dead end. **Removing a single watch entry**, which belonged to
@@ -796,6 +796,23 @@ Code is organised **per feature** (D-014, D-037). The Go module is `server/` (mo
 `frontend/` with `src/features/<component>/<feature>/`. There is **no `internal/` and no `cmd/`** —
 `package main` is `server/main.go`.
 
+**`androidApp/` is the Android app** — its own Gradle project (Kotlin + Jetpack Compose, module
+`app`); nothing under `server/` or `frontend/` depends on it and `/verify` does not build it. Its
+scope is **D-040**: video only, **local-first** — the device's own database is the only thing the
+UI reads, and the device calls TMDB itself with a key built into the app (a build-time secret,
+never committed; **the server never hands a key to a client**). It runs **standalone** (no server;
+a backup file is the safety net) or **linked**, where the server is the source of truth: writes go
+to the local database plus an **outbox of commands** (client-generated id, TMDB-addressed targets),
+and on open the app **pushes the outbox, then replaces its user state with the server's full
+snapshot** — it never merges, and nothing on the wire is a local id. Pairing is an API token shown
+as a QR code on a SPA Devices page. The Up Next / status / aired / upcoming / stats rules exist in
+Go **and** Kotlin and are held together by shared JSON fixtures both test suites run: change a
+rule on one side, change the fixture and the other side. **No background work, notifications or
+widgets; no games; no Jellyfin, matching, TMDB-account or restore screens.** Delivery is three
+phases — standalone app, then the server side (tokens, `episodes.tmdb_id`, snapshot, command
+batch), then linking; it is still a hello-world shell today. Adding a Gradle dependency requires
+asking first, like a Go module or an npm package.
+
 - Media components live under `server/features/`: `features/video` (movies + shows together) and
   `features/games`. `server/auth` is also a feature (same layering) but stays **top-level** — it
   is cross-cutting. Shared infrastructure: `server/{config,httpx,db,provider,assets,web}`.
@@ -1003,7 +1020,8 @@ Trakt/Letterboxd/Goodreads import **via their APIs** (a Ticket Box dump file is 
 social features, sharing (the one opt-in carve-out is D-028's watchlist matching, which shows only
 the overlap with your own list; statistics over your OWN log are in, D-039, and are never compared
 across accounts), notifications, importing an export archive, any
-offline-capable client mirror or sync layer (D-004).
+offline-capable mirror or sync layer in the SPA (D-004), and any two-way merge anywhere — the
+Android app is the one offline client and it only queues commands and takes snapshots (D-040).
 
 **Books** (D-035): the third component was withdrawn; do not reintroduce a books table, route or
 provider client without a new decision.

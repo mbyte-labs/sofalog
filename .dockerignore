@@ -20,6 +20,9 @@ frontend/node_modules/
 frontend/.vite/
 server/sofalog
 
+# The Android app is built by Gradle, never by this image.
+androidApp/
+
 # Documentation and specs play no part in the build.
 *.md
 docs/
