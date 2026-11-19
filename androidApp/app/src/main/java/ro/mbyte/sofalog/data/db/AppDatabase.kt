@@ -16,8 +16,11 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         WatchEntity::class,
         ShowStateEntity::class,
         RatingEntity::class,
+        WatchlistEntity::class,
+        FavoriteEntity::class,
+        CopyEntity::class,
     ],
-    version = 3,
+    version = 5,
     // Schema export is off while the app is unreleased, but devices already hold data, so every
     // version change carries a real migration below — never a destructive fallback.
     exportSchema = false,
@@ -28,7 +31,7 @@ abstract class AppDatabase : RoomDatabase() {
     companion object {
         fun open(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "sofalog.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
                 .build()
 
         /**
@@ -51,6 +54,35 @@ abstract class AppDatabase : RoomDatabase() {
                         "rating INTEGER NOT NULL, updated_at TEXT NOT NULL, " +
                         "PRIMARY KEY(target_type, target_id))",
                 )
+            }
+        }
+
+        /** Adds the watchlist, favorites and owned-copies tables. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                for (table in listOf("user_video_watchlist", "user_video_favorites")) {
+                    db.execSQL(
+                        "CREATE TABLE IF NOT EXISTS $table (" +
+                            "target_type TEXT NOT NULL, target_id INTEGER NOT NULL, " +
+                            "added_at TEXT NOT NULL, PRIMARY KEY(target_type, target_id))",
+                    )
+                }
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS user_video_copies (" +
+                        "target_type TEXT NOT NULL, target_id INTEGER NOT NULL, kind TEXT NOT NULL, " +
+                        "added_at TEXT NOT NULL, PRIMARY KEY(target_type, target_id, kind))",
+                )
+            }
+        }
+
+        /**
+         * Adds the season's own snapshot. Existing rows start null, which the season page reads as
+         * "not fetched yet": each season fills in on its next view.
+         */
+        val MIGRATION_4_5 = object : Migration(4, 5) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE seasons ADD COLUMN metadata_json TEXT")
+                db.execSQL("ALTER TABLE seasons ADD COLUMN fetched_at TEXT")
             }
         }
     }

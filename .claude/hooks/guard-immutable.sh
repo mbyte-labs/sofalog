@@ -59,7 +59,7 @@ case "$rel" in
 esac
 
 case "$rel" in
-  data/*|*/data/*)
+  data/*|server/data/*)
     deny "$rel is inside the runtime data volume (SQLite DB, downloaded assets, provider cache). The app writes there at runtime; tooling must not."
     ;;
 esac

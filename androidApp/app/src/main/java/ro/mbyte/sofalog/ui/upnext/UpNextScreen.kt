@@ -56,7 +56,6 @@ import java.time.Instant
 import ro.mbyte.sofalog.data.UpNextItem
 import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.ui.common.CenteredLoading
-import ro.mbyte.sofalog.ui.common.CenteredMessage
 import ro.mbyte.sofalog.ui.common.Poster
 import ro.mbyte.sofalog.ui.common.WatchLogForm
 import ro.mbyte.sofalog.ui.common.attempt
@@ -77,6 +76,10 @@ class UpNextViewModel(private val repo: VideoRepository) : ViewModel() {
     /** null while the first read is in flight. */
     val items: StateFlow<List<UpNextItem>?> =
         repo.observeUpNext().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    /** Whether the log holds any watch; null while unread, so the empty page never flips its text. */
+    val hasHistory: StateFlow<Boolean?> =
+        repo.observeHasWatches().stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     val error = MutableStateFlow<String?>(null)
 
@@ -101,11 +104,14 @@ class UpNextViewModel(private val repo: VideoRepository) : ViewModel() {
 fun UpNextScreen(
     onOpenEpisode: (showTmdbId: Long, season: Int, episode: Int) -> Unit,
     onSearch: () -> Unit,
+    onTrending: () -> Unit,
+    onSettings: () -> Unit,
     onMenu: () -> Unit,
 ) {
     val repo = repository()
     val vm: UpNextViewModel = viewModel(factory = viewModelFactory { initializer { UpNextViewModel(repo) } })
     val items by vm.items.collectAsStateWithLifecycle()
+    val hasHistory by vm.hasHistory.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
@@ -128,13 +134,14 @@ fun UpNextScreen(
     ) { padding ->
         val list = items
         when {
-            list == null -> CenteredLoading(Modifier.padding(padding))
-            list.isEmpty() -> CenteredMessage(
-                "Nothing in progress yet.\nFind a show and mark an episode watched to start.",
-                Modifier.padding(padding),
-            ) {
-                Button(onClick = onSearch, modifier = Modifier.padding(top = 16.dp)) { Text("Search") }
-            }
+            list == null || hasHistory == null -> CenteredLoading(Modifier.padding(padding))
+            list.isEmpty() -> UpNextEmpty(
+                hasHistory = hasHistory == true,
+                onSearch = onSearch,
+                onTrending = onTrending,
+                onSettings = onSettings,
+                modifier = Modifier.padding(padding),
+            )
             else -> LazyVerticalGrid(
                 columns = GridCells.Adaptive(minSize = 150.dp),
                 modifier = Modifier.fillMaxSize().padding(padding),

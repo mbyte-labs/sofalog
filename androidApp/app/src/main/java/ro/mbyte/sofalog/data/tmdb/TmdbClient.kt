@@ -7,6 +7,8 @@ import kotlinx.serialization.json.Json
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.OkHttpClient
 import okhttp3.Request
+import ro.mbyte.sofalog.domain.compactSeasonBody
+import ro.mbyte.sofalog.domain.pruneWatchProviders
 import java.io.IOException
 
 /** Why a TMDB call failed. The message never carries the URL — the key rides in it. */
@@ -28,16 +30,46 @@ class TmdbClient(private val apiKey: String, private val http: OkHttpClient) {
         return decode<TmdbSearchPage>(body).results.filter { it.mediaType == "movie" || it.mediaType == "tv" }
     }
 
-    suspend fun movie(tmdbId: Long): Fetched<TmdbMovie> = fetch("movie/$tmdbId")
+    /**
+     * One request for everything the movie page shows — the server's own append list. The image
+     * languages are bounded, or TMDB would send every localised poster. The watch-provider
+     * section is pruned to one country before the body is handed on, so what gets stored is small.
+     */
+    suspend fun movie(tmdbId: Long): Fetched<TmdbMovie> {
+        val body = pruneWatchProviders(
+            get(
+                "movie/$tmdbId",
+                "append_to_response" to "credits,external_ids,videos,images,watch/providers,recommendations",
+                "include_image_language" to "en,null",
+            ),
+        )
+        return Fetched(decode<TmdbMovie>(body), body)
+    }
 
-    suspend fun show(tmdbId: Long): Fetched<TmdbShow> = fetch("tv/$tmdbId")
+    /**
+     * The show page's one request, the movie's append list with the cast swapped for
+     * `aggregate_credits` — everyone credited across every episode, not the latest season's.
+     */
+    suspend fun show(tmdbId: Long): Fetched<TmdbShow> {
+        val body = pruneWatchProviders(
+            get(
+                "tv/$tmdbId",
+                "append_to_response" to "aggregate_credits,external_ids,videos,images,watch/providers,recommendations",
+                "include_image_language" to "en,null",
+            ),
+        )
+        return Fetched(decode<TmdbShow>(body), body)
+    }
 
-    suspend fun season(showTmdbId: Long, seasonNumber: Int): Fetched<TmdbSeason> =
-        fetch("tv/$showTmdbId/season/$seasonNumber")
-
-    private suspend inline fun <reified T> fetch(path: String): Fetched<T> {
-        val body = get(path)
-        return Fetched(decode<T>(body), body)
+    /**
+     * One season with its own `aggregate_credits` — the season page's cast — and `credits`, its
+     * regulars, which the episode page lists beside each episode's guest stars. The body handed on
+     * is compacted to what those pages read beyond the stored columns (see [compactSeasonBody]):
+     * the full document repeats every episode's crew, far too much to keep per season.
+     */
+    suspend fun season(showTmdbId: Long, seasonNumber: Int): Fetched<TmdbSeason> {
+        val body = get("tv/$showTmdbId/season/$seasonNumber", "append_to_response" to "aggregate_credits,credits")
+        return Fetched(decode<TmdbSeason>(body), compactSeasonBody(body))
     }
 
     private inline fun <reified T> decode(body: String): T = try {
@@ -82,5 +114,11 @@ class TmdbClient(private val apiKey: String, private val http: OkHttpClient) {
         fun posterUrl(path: String?): String? = path?.let { "$IMAGES/w342$it" }
         fun backdropUrl(path: String?): String? = path?.let { "$IMAGES/w780$it" }
         fun stillUrl(path: String?): String? = path?.let { "$IMAGES/w300$it" }
+        fun profileUrl(path: String?): String? = path?.let { "$IMAGES/w185$it" }
+        fun logoUrl(path: String?): String? = path?.let { "$IMAGES/w185$it" }
+
+        /** The lightbox's variants: the largest TMDB serves short of the original. */
+        fun posterFullUrl(path: String?): String? = path?.let { "$IMAGES/w780$it" }
+        fun backdropFullUrl(path: String?): String? = path?.let { "$IMAGES/w1280$it" }
     }
 }

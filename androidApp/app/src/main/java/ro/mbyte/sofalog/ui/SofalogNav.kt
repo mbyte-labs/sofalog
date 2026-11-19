@@ -31,12 +31,17 @@ import ro.mbyte.sofalog.ui.details.EpisodeScreen
 import ro.mbyte.sofalog.ui.details.MovieScreen
 import ro.mbyte.sofalog.ui.details.SeasonScreen
 import ro.mbyte.sofalog.ui.details.ShowScreen
+import ro.mbyte.sofalog.ui.history.HistoryScreen
+import ro.mbyte.sofalog.ui.placeholder.ComingSoonScreen
 import ro.mbyte.sofalog.ui.search.SearchScreen
 import ro.mbyte.sofalog.ui.upnext.UpNextScreen
 
 private const val UP_NEXT = "upnext"
+private const val HISTORY = "history"
 private const val SEARCH = "search"
 private const val ABOUT = "about"
+private const val TRENDING = "trending"
+private const val SETTINGS = "settings"
 
 /** Titles are addressed by TMDB id everywhere: it names tracked and untracked items alike. */
 @Composable
@@ -57,7 +62,7 @@ fun SofalogNav() {
         drawerState = drawer,
         // The edge swipe opens the menu on the top-level screens only; a detail page keeps its
         // plain back gesture. An open drawer can always be swiped shut.
-        gesturesEnabled = route == UP_NEXT || route == SEARCH || drawer.isOpen,
+        gesturesEnabled = route == UP_NEXT || route == HISTORY || route == SEARCH || drawer.isOpen,
         drawerContent = {
             ModalDrawerSheet {
                 Text(
@@ -71,6 +76,13 @@ fun SofalogNav() {
                     icon = { Text("▶") },
                     selected = route == UP_NEXT,
                     onClick = { go { nav.topLevel(UP_NEXT) } },
+                    modifier = item,
+                )
+                NavigationDrawerItem(
+                    label = { Text("History") },
+                    icon = { Text("↺") },
+                    selected = route == HISTORY,
+                    onClick = { go { nav.topLevel(HISTORY) } },
                     modifier = item,
                 )
                 NavigationDrawerItem(
@@ -97,6 +109,34 @@ fun SofalogNav() {
                         nav.navigate("show/$show/season/$season/episode/$episode")
                     },
                     onSearch = { nav.topLevel(SEARCH) },
+                    onTrending = { nav.navigate(TRENDING) { launchSingleTop = true } },
+                    onSettings = { nav.navigate(SETTINGS) { launchSingleTop = true } },
+                    onMenu = openMenu,
+                )
+            }
+            // Placeholders: neither page is built, so each only says what it will be. Reached from
+            // the empty Up Next page alone — the drawer gains its entries with the real pages.
+            composable(TRENDING) {
+                ComingSoonScreen(
+                    title = "Trending",
+                    text = "Trending movies and shows from TMDB will be listed here.",
+                    onBack = { nav.popBackStack() },
+                )
+            }
+            composable(SETTINGS) {
+                ComingSoonScreen(
+                    title = "Settings",
+                    text = "This is where you will set the app up.",
+                    onBack = { nav.popBackStack() },
+                    planned = listOf("Sync with your TMDB account", "The country for where-to-watch listings"),
+                )
+            }
+            composable(HISTORY) {
+                HistoryScreen(
+                    onOpenMovie = { id -> nav.navigate("movie/$id") },
+                    onOpenEpisode = { show, season, episode ->
+                        nav.navigate("show/$show/season/$season/episode/$episode")
+                    },
                     onMenu = openMenu,
                 )
             }
@@ -110,17 +150,42 @@ fun SofalogNav() {
             }
             composable(ABOUT) { DataSourcesScreen(onBack = { nav.popBackStack() }) }
             composable("movie/{id}", listOf(navArgument("id") { type = NavType.LongType })) {
-                MovieScreen(it.arguments!!.getLong("id"), onBack = { nav.popBackStack() })
+                MovieScreen(
+                    it.arguments!!.getLong("id"),
+                    onMenu = openMenu,
+                    onOpenMovie = { id -> nav.navigate("movie/$id") },
+                )
             }
             composable("show/{id}", listOf(navArgument("id") { type = NavType.LongType })) {
                 val id = it.arguments!!.getLong("id")
-                ShowScreen(id, onBack = { nav.popBackStack() }, onOpenSeason = { n -> nav.navigate("show/$id/season/$n") })
+                ShowScreen(
+                    id,
+                    onMenu = openMenu,
+                    onOpenSeason = { n -> nav.navigate("show/$id/season/$n") },
+                    onOpenShow = { other -> nav.navigate("show/$other") },
+                )
             }
             composable(
                 "show/{id}/season/{n}",
                 listOf(navArgument("id") { type = NavType.LongType }, navArgument("n") { type = NavType.IntType }),
             ) {
-                SeasonScreen(it.arguments!!.getLong("id"), it.arguments!!.getInt("n"), onBack = { nav.popBackStack() })
+                val id = it.arguments!!.getLong("id")
+                val n = it.arguments!!.getInt("n")
+                SeasonScreen(
+                    id,
+                    n,
+                    onMenu = openMenu,
+                    onOpenEpisode = { e -> nav.navigate("show/$id/season/$n/episode/$e") },
+                    // Back to the show when that is where this page was opened from; a fresh one otherwise.
+                    onOpenShow = {
+                        val under = nav.previousBackStackEntry
+                        if (under?.destination?.route == "show/{id}" && under.arguments?.getLong("id") == id) {
+                            nav.popBackStack()
+                        } else {
+                            nav.navigate("show/$id")
+                        }
+                    },
+                )
             }
             composable(
                 "show/{id}/season/{n}/episode/{e}",
@@ -131,11 +196,23 @@ fun SofalogNav() {
                 ),
             ) {
                 val id = it.arguments!!.getLong("id")
+                val n = it.arguments!!.getInt("n")
                 EpisodeScreen(
-                    season = it.arguments!!.getInt("n"),
-                    episode = it.arguments!!.getInt("e"),
-                    onBack = { nav.popBackStack() },
+                    id,
+                    n,
+                    it.arguments!!.getInt("e"),
+                    onMenu = openMenu,
                     onOpenShow = { nav.navigate("show/$id") },
+                    // Back to the season when that is where this page was opened from; a fresh one otherwise.
+                    onOpenSeason = {
+                        val under = nav.previousBackStackEntry
+                        val args = under?.arguments
+                        if (under?.destination?.route == "show/{id}/season/{n}" && args?.getLong("id") == id && args.getInt("n") == n) {
+                            nav.popBackStack()
+                        } else {
+                            nav.navigate("show/$id/season/$n")
+                        }
+                    },
                 )
             }
         }
@@ -145,8 +222,9 @@ fun SofalogNav() {
     }
 }
 
+// A drawer entry always lands on the page it names: whatever was open above Up Next is dropped,
+// never saved and restored (the bottom-tab recipe, which would reopen a detail page here).
 private fun NavHostController.topLevel(route: String) = navigate(route) {
-    popUpTo(graph.findStartDestination().id) { saveState = true }
+    popUpTo(graph.findStartDestination().id)
     launchSingleTop = true
-    restoreState = true
 }

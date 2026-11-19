@@ -86,3 +86,20 @@ fun upNextEpisode(status: ShowStatus?, episodes: List<EpisodeRef>, watched: Set<
     if (episodes.none { it.id in watched }) return null
     return pickNextEpisode(episodes, watched)
 }
+
+/**
+ * One season's counts for the show page's grid: the show's progress narrowed to a season, plus
+ * every episode it has. Unlike [showProgress] a Specials season counts its own episodes — this is
+ * display, not D-012's completion rule.
+ */
+data class SeasonProgress(val watched: Int, val airedTotal: Int, val total: Int)
+
+fun seasonProgress(episodes: List<EpisodeRef>, watched: Set<Long>, today: String): Map<Int, SeasonProgress> =
+    episodes.groupBy { it.season }.mapValues { (_, list) ->
+        val aired = list.filter { it.airDate != null && it.airDate <= today }
+        SeasonProgress(watched = aired.count { it.id in watched }, airedTotal = aired.size, total = list.size)
+    }
+
+/** The mean of a set of episode ratings; null when nothing is rated. */
+fun episodeRatingMean(ratings: Collection<Int>): Double? =
+    if (ratings.isEmpty()) null else ratings.sum().toDouble() / ratings.size

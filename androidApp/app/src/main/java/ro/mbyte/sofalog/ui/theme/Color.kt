@@ -14,3 +14,6 @@ val AirsBadge = Color(0xFFD9A21B)
 val FinaleBadge = Color(0xFFC0413F)
 val SeasonPremiereBadge = Color(0xFF3A9A5B)
 val OnBadge = Color.White
+
+/** The user's own rating on a history poster — the web card's pill colour. */
+val UserRatingBadge = Color(0xFFE8435A)

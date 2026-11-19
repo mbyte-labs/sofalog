@@ -26,10 +26,13 @@ import ro.mbyte.sofalog.SofalogApp
 import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.data.tmdb.TmdbClient
 import ro.mbyte.sofalog.data.tmdb.TmdbException
+import ro.mbyte.sofalog.domain.isDateOnlyWatch
 import java.time.Instant
 import java.time.LocalDate
+import java.time.YearMonth
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @Composable
 fun repository(): VideoRepository = (LocalContext.current.applicationContext as SofalogApp).repository
@@ -63,6 +66,37 @@ fun formatDay(date: String?): String? =
 fun formatInstant(instant: String): String = runCatching {
     Instant.parse(instant).atZone(ZoneId.systemDefault()).format(instantFormat)
 }.getOrDefault(instant)
+
+private val historyInstantFormat = DateTimeFormatter.ofPattern("EEE, d MMM, HH:mm", Locale.ENGLISH)
+private val monthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Locale.ENGLISH)
+
+/** The history card's line: weekday, day and time in the device's zone ("Sat, 15 Aug, 21:05"). */
+fun formatHistoryInstant(instant: String): String = runCatching {
+    Instant.parse(instant).atZone(ZoneId.systemDefault()).format(historyInstantFormat)
+}.getOrDefault(instant)
+
+private val watchDayFormat = DateTimeFormatter.ofPattern("EEE, d MMM yyyy", Locale.ENGLISH)
+private val watchTimeFormat = DateTimeFormatter.ofPattern("HH:mm", Locale.ENGLISH)
+private val shortDayFormat = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.ENGLISH)
+
+/**
+ * One watch on an item's own timeline, in the device's zone: "Sat, 14 Nov 2026 · 21:05". A watch
+ * logged "on its release date" sits at midnight and shows its day alone — it never had a time.
+ */
+fun formatWatchInstant(instant: String): String = runCatching {
+    val zone = ZoneId.systemDefault()
+    val at = Instant.parse(instant).atZone(zone)
+    val day = at.format(watchDayFormat)
+    if (isDateOnlyWatch(instant, zone)) day else "$day · ${at.format(watchTimeFormat)}"
+}.getOrDefault(instant)
+
+/** A watch's day without the weekday: "16 Jul 2010". */
+fun formatWatchDay(instant: String): String = runCatching {
+    Instant.parse(instant).atZone(ZoneId.systemDefault()).format(shortDayFormat)
+}.getOrDefault(instant)
+
+/** A month heading: "August 2026". */
+fun formatMonth(month: YearMonth): String = month.format(monthFormat)
 
 fun episodeCode(season: Int, number: Int): String = "S${season}xE$number"
 

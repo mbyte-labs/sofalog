@@ -14,16 +14,86 @@ own TMDB access, usable standalone or linked to a server (an outbox of commands 
 then the server's snapshot replacing local state). No background work, notifications or widgets.
 
 **What exists today is the first slice of phase 1 (standalone):** Up Next, TMDB search, movie,
-show and season pages, tracking a show, marking movies and episodes watched (now), the whole-show
+show, season and episode pages, tracking a show, marking movies and episodes watched (now), the whole-show
 and whole-season bulk marks, removing a watch, and the data-sources screen with the TMDB notice.
-An Up Next card opens the episode page on a tap — a placeholder for now — and on a long-press
+An Up Next card opens the episode page on a tap and on a long-press
 opens a bottom sheet offering "Mark as watched" and "Check in" (also a placeholder: it writes
 nothing). "Mark as watched" there asks for an optional rating (1–10, stored in
 `user_video_ratings`) and when the watch happened: now, the release date (midnight that day in the
 device's zone) or a picked date and time, never in the future.
-Not yet: the episode page's content, check-in, showing or editing ratings, dated watches anywhere
-but that sheet, lists, history, upcoming, stats, discover, dropping a show, the
-backup file, and everything about linking to a server.
+With nothing in progress, Up Next shows the app's mark (gently animated), a line that tells a
+never-used library ("Your sofa is ready") from a caught-up one ("All caught up" — the log holds a
+watch), and three cards: Search, Trending on TMDB and Settings. The last two open placeholder
+pages (`ui/placeholder/ComingSoonScreen.kt`); neither is in the menu yet.
+The History page lists every watch, one card per watch (a rewatch is another card), in month
+sections of the device's zone, with a movies / episodes filter, newest- or oldest-first order and
+48 more per "Load more"; a card opens the movie page or the episode page. It shows the
+user's rating and, for movies, TMDB's score — an episode card has no score, because the device
+stores none per season. A long-press on a card offers removal, each confirmed first: that one
+entry; every entry of the movie or episode (offered when there is more than one); and for an
+episode, every watch of its season or of its whole show.
+The movie page is the web page's, section for section: a hero over the blurred poster, outbound
+links and production facts, TMDB's score beside the user's own rating (set and cleared in place),
+owned copies and where it streams (one country, `WATCH_REGION` = RO), the history section, cast, a
+media gallery (backdrops, videos, posters) and similar movies. The history section is one block: a
+summary (how many watches, how long since the last), a vertical timeline newest-first — each entry
+its day, its time unless it was logged "on its release date", and its age in calendar days of the
+device's zone; a log of five or more folds to three behind "Show all" — and under it the
+"Mark As Watched" / "Log another watch" button with the watchlist and favorite toggles. From 840dp
+the summary and the buttons sit beside the timeline. The page is laid out for touch: every
+choice is a bottom sheet, the gallery is a full-screen viewer you swipe and pinch, and a tap on a
+timeline entry asks before removing it. Everything beyond the row's columns is parsed per view
+out of the stored TMDB body (`domain/MovieSnapshot.kt`); a tracked movie refetches after 48 hours
+or when its body predates a section the page reads, and keeps rendering the old one when TMDB is
+down. Rating, watchlisting, favoriting and adding a copy are tracking actions — they store an
+untracked movie first. Cast cards are not links yet: there is no person page.
+Its app bar lies over the hero — clear at the top, solid with the title once the hero has scrolled
+away — and carries the menu; leaving the page is the system back. Its right end reports the
+movie's state in up to three read-only marks — ✓ watched, a bookmark for the watchlist, a heart for
+favorites — each drawn only while it holds.
+The show page is the movie page's twin and the web show page's, section for section: the same hero
+("Created by", years, season and episode counts), links and facts (network, status, air dates,
+next episode), TMDB's score beside the user's rating and their episode average, copies with
+per-kind season coverage ("2 of 5 seasons" — a show is owned per season, so a show-wide add or
+remove fans out over every non-special season), streaming, "Your progress" (status, aired counts,
+**Drop show / Resume show**), the episode watch timeline with the main button and the two
+toggles, the aggregate cast, a season grid (progress, the user's average and TMDB's score on each
+poster; as many columns as the window holds), media and similar shows. "Mark As Watched" opens the
+bulk form: the remaining episodes or a full rewatch, watched now, at one moment, on each episode's
+release date or on each season's premiere (with a fallback date for a season that has none).
+Both pages are built from the same sections (`ui/details/parts/`), which take plain values rather
+than a movie or a show; `domain/ShowSnapshot.kt` is the show's read of its stored body, sharing
+the movie's video, image, streaming and similar-title rules. The ✓ in a show's app bar means
+finished — every aired episode — not started.
+The season page is the web's (`SeasonDetailsPage.svelte`) in the same sections: the hero with the
+show's title above the season's (a way back to the show), a "you dropped this show" banner, TMDB's
+season score beside "Your rating" — the average of the user's episode ratings, since a season is
+not itself rated — this season's own copies (Specials included) and the show's streaming listing,
+the episode grid (stills with ✓, the user's rating, TMDB's score and the premiere / finale marker;
+two columns on a phone, as many as fit on a tablet), the season's watch history with removal and
+the season-wide "Mark As Watched" (the bulk form, narrowed to the season; not offered for
+Specials), and the season's cast with episode counts within it. A tap on an episode opens its
+page; a long-press offers "Mark as watched" — the dated form, with a rating — as a shortcut past
+it. The cast and the scores come from the season's own TMDB document (`aggregate_credits` and
+`credits` appended), kept in `seasons.metadata_json` compacted to what the season and episode
+pages read (`domain/SeasonSnapshot.kt`): the full body repeats the crew under every episode, so
+that is dropped and each guest star is kept as name, character, photo and billing order. A season
+stored before that column existed — or before the regulars and guests were kept — fills in on its
+first view, and refreshes on view after 48h.
+
+The episode page is the web's (`EpisodeDetailsPage.svelte`) in the same sections, and reads only
+what the season page already holds — it makes no TMDB call of its own. The episode's still is the
+band under the app bar (an episode has no poster), with the show and the season above the title
+as two ways back, then `S01E05`, the air date, the runtime and the premiere / finale marker. Below
+it: the "you dropped this show" banner, TMDB's episode score and vote count beside the user's
+rating (an episode is rated directly, with or without a watch), the season's copies and the show's
+streaming listing — both read-only here: a copy tile explains that copies are per season and
+leads to the season page — the episode's own watch history with removal and "Mark As Watched" /
+"Log another watch" (the dated form, with a rating), the season's regular cast, and the episode's
+guest stars. Rating or marking an episode of an untracked show tracks the whole show first.
+Not yet: check-in, the
+watchlist, favorites and dropped list pages, the person page, upcoming, stats, discover and
+trending, settings, the backup file, and everything about linking to a server.
 
 ## TMDB key
 
@@ -82,8 +152,9 @@ androidApp/
   version with a real `Migration` — never a destructive fallback.
 - The UI reads only the local database, through `VideoRepository`. TMDB is called for search, for
   previews of untracked titles and to materialise a title when it is first tracked.
-- `user_show_states` has one writer: `VideoRepository.recompute`, in the same transaction as the
-  watch-log change it follows.
+- `user_show_states` has one system writer: `VideoRepository.recompute`, in the same transaction
+  as the watch-log change it follows. The only other write is the user's own drop / un-drop
+  (`setShowDropped`): an UPDATE that never creates a row, and an un-drop that recomputes at once.
 - Phones and tablets are both first-class: a screen adapts to the window size it is given rather
   than assuming a phone in portrait.
 - Every dependency version lives in `gradle/libs.versions.toml`; adding a dependency requires

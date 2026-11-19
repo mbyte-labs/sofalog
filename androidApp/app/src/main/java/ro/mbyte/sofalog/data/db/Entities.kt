@@ -62,6 +62,13 @@ data class SeasonEntity(
     val overview: String?,
     @ColumnInfo(name = "poster_path") val posterPath: String?,
     @ColumnInfo(name = "episode_count") val episodeCount: Int,
+    /**
+     * What the season page reads beyond the columns above — the season's score, its cast and its
+     * episodes' scores — compacted from TMDB's body (`domain/SeasonSnapshot.kt`). Null on a row
+     * written before the body was kept, and on a season the device only knows from its show.
+     */
+    @ColumnInfo(name = "metadata_json") val metadataJson: String? = null,
+    @ColumnInfo(name = "fetched_at") val fetchedAt: String? = null,
 )
 
 @Entity(
@@ -127,5 +134,41 @@ data class RatingEntity(
     @ColumnInfo(name = "updated_at") val updatedAt: String,
 )
 
+/**
+ * The watchlist: an independent axis, never a status (D-011). One row per movie or show.
+ */
+@Entity(tableName = "user_video_watchlist", primaryKeys = ["target_type", "target_id"])
+data class WatchlistEntity(
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "target_id") val targetId: Long,
+    @ColumnInfo(name = "added_at") val addedAt: String,
+)
+
+/** Favorites: a third axis, the watchlist's shape (D-030). */
+@Entity(tableName = "user_video_favorites", primaryKeys = ["target_type", "target_id"])
+data class FavoriteEntity(
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "target_id") val targetId: Long,
+    @ColumnInfo(name = "added_at") val addedAt: String,
+)
+
+/**
+ * Which formats the user holds an item on (D-021): `jellyfin` | `dvd` | `bluray` | `uhd` |
+ * `physical` | `digital`. A shelf label per kind, never a status.
+ */
+@Entity(tableName = "user_video_copies", primaryKeys = ["target_type", "target_id", "kind"])
+data class CopyEntity(
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "target_id") val targetId: Long,
+    val kind: String,
+    @ColumnInfo(name = "added_at") val addedAt: String,
+)
+
 const val TARGET_MOVIE = "movie"
 const val TARGET_EPISODE = "episode"
+
+/** A show is rated, watchlisted and favorited; it is never itself watched or owned. */
+const val TARGET_SHOW = "show"
+
+/** A season is what an owned copy of a show hangs on (D-021); it is never rated or watched. */
+const val TARGET_SEASON = "season"

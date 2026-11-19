@@ -814,7 +814,16 @@ rule on one side, change the fixture and the other side. **No background work, n
 widgets; no games; no Jellyfin, matching, TMDB-account or restore screens.** Delivery is three
 phases — standalone app, then the server side (tokens, `episodes.tmdb_id`, snapshot, command
 batch), then linking. **Phase 1's first slice is built** (Room database, TMDB client, Up Next,
-search, movie/show/season pages, marking and bulk marking, watch removal); what is and is not
+search, movie/show/season/episode pages, marking and bulk marking, watch removal; the movie and show
+pages are at parity with the web's — rating, watchlist, favorite, copies, streaming, cast, media,
+similar, and for a show the season grid, drop / un-drop and the bulk mark's rewatch and
+`watched_at` modes — off the stored TMDB body, `domain/MovieSnapshot.kt` and
+`domain/ShowSnapshot.kt`, both built from the shared sections in `ui/details/parts/`; the season
+page is at parity too — episode grid, season-wide bulk mark, per-season copies, cast and scores
+off the season's own compacted body, `domain/SeasonSnapshot.kt` — and so is the episode page,
+which reads that same season body (regulars, guest stars, score and votes) and never fetches an
+episode of its own: its still is the hero, its copies and streaming are the season's and the
+show's, read-only, and it rates and logs the episode itself); what is and is not
 there yet is listed in `androidApp/README.md`. The shared cases live in `fixtures/video-rules/`
 and are run by `RuleFixturesTest` (Kotlin) and by `status_fixtures_test.go` /
 `upnext/fixtures_test.go` (Go). The TMDB key comes from `tmdb.apiKey` in the gitignored

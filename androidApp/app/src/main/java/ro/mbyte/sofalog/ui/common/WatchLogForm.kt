@@ -63,18 +63,21 @@ fun WatchLogForm(
     airDate: String?,
     onConfirm: (watchedAt: Instant?, rating: Int?) -> Unit,
     modifier: Modifier = Modifier,
+    /** What is being watched, for the hints: "episode" or "movie". */
+    subject: String = "episode",
+    /** The rating the bar starts on. Only a value moved away from it is handed to [onConfirm]. */
+    initialRating: Int? = null,
+    enabled: Boolean = true,
 ) {
     val zone = remember { ZoneId.systemDefault() }
     val opened = remember { Instant.now() }
     val today = remember { LocalDate.ofInstant(opened, zone) }
     val release = remember(airDate) { releaseInstant(airDate, zone)?.takeIf { !it.isAfter(opened) } }
 
-    var rating by remember { mutableStateOf<Int?>(null) }
+    var rating by remember { mutableStateOf(initialRating) }
     var mode by remember { mutableStateOf(WatchedAtMode.NOW) }
     var date by remember { mutableStateOf(today) }
     var time by remember { mutableStateOf(LocalTime.ofInstant(opened, zone).truncatedTo(ChronoUnit.MINUTES)) }
-    var pickingDate by remember { mutableStateOf(false) }
-    var pickingTime by remember { mutableStateOf(false) }
 
     val custom = wallTimeInstant(date, time, zone)
     val customInFuture = mode == WatchedAtMode.CUSTOM && custom.isAfter(Instant.now())
@@ -87,7 +90,7 @@ fun WatchLogForm(
         Text(title, style = MaterialTheme.typography.titleLarge, textAlign = TextAlign.Center)
         Text(subtitle, style = MaterialTheme.typography.titleSmall, textAlign = TextAlign.Center)
 
-        SectionLabel("Watched at")
+        FormLabel("Watched at")
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
             WatchedAtMode.entries.forEachIndexed { index, option ->
                 SegmentedButton(
@@ -100,17 +103,10 @@ fun WatchLogForm(
             }
         }
         when (mode) {
-            WatchedAtMode.NOW -> Hint("The watch is logged at the current time.")
-            WatchedAtMode.RELEASE -> Hint("The watch is logged on ${formatDay(airDate).orEmpty()}, at 00:00.")
+            WatchedAtMode.NOW -> FormHint("The watch is logged at the current time.")
+            WatchedAtMode.RELEASE -> FormHint("The watch is logged on ${formatDay(airDate).orEmpty()}, at 00:00.")
             WatchedAtMode.CUSTOM -> {
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) {
-                        Text(formatDay(date.toString()).orEmpty())
-                    }
-                    OutlinedButton(onClick = { pickingTime = true }, modifier = Modifier.weight(1f)) {
-                        Text(time.format(timeFormat))
-                    }
-                }
+                DateTimeFields(date, time, today, onDate = { date = it }, onTime = { time = it })
                 if (customInFuture) {
                     Text(
                         "A watch can't be in the future.",
@@ -121,10 +117,10 @@ fun WatchLogForm(
             }
         }
         if (release == null && mode != WatchedAtMode.RELEASE) {
-            Hint(if (airDate.isNullOrBlank()) "This episode has no release date yet." else "This episode hasn't been released yet.")
+            FormHint(if (airDate.isNullOrBlank()) "This $subject has no release date yet." else "This $subject hasn't been released yet.")
         }
 
-        SectionLabel("Your rating (optional)")
+        FormLabel("Your rating (optional)")
         RatingBar(rating, onChange = { rating = it })
 
         Button(
@@ -134,11 +130,57 @@ fun WatchLogForm(
                     WatchedAtMode.RELEASE -> release
                     WatchedAtMode.CUSTOM -> custom
                 }
-                onConfirm(at, rating)
+                onConfirm(at, rating.takeIf { it != initialRating })
             },
-            enabled = !customInFuture,
+            enabled = enabled && !customInFuture,
             modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
         ) { Text("Mark as watched") }
+    }
+}
+
+@Composable
+internal fun FormLabel(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+    )
+}
+
+@Composable
+internal fun FormHint(text: String) {
+    Text(
+        text,
+        style = MaterialTheme.typography.bodySmall,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.fillMaxWidth(),
+    )
+}
+
+/**
+ * A date button and a time button, each opening its picker — a wall-clock moment in the user's
+ * zone. No day after [today] can be picked; whether the time makes it a future moment is the
+ * caller's to check.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun DateTimeFields(
+    date: LocalDate,
+    time: LocalTime,
+    today: LocalDate,
+    onDate: (LocalDate) -> Unit,
+    onTime: (LocalTime) -> Unit,
+) {
+    var pickingDate by remember { mutableStateOf(false) }
+    var pickingTime by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        OutlinedButton(onClick = { pickingDate = true }, modifier = Modifier.weight(1f)) {
+            Text(formatDay(date.toString()).orEmpty())
+        }
+        OutlinedButton(onClick = { pickingTime = true }, modifier = Modifier.weight(1f)) {
+            Text(time.format(timeFormat))
+        }
     }
 
     if (pickingDate) {
@@ -157,7 +199,7 @@ fun WatchLogForm(
             confirmButton = {
                 TextButton(onClick = {
                     state.selectedDateMillis?.let {
-                        date = LocalDate.ofInstant(Instant.ofEpochMilli(it), ZoneOffset.UTC)
+                        onDate(LocalDate.ofInstant(Instant.ofEpochMilli(it), ZoneOffset.UTC))
                     }
                     pickingDate = false
                 }) { Text("OK") }
@@ -173,31 +215,11 @@ fun WatchLogForm(
             text = { TimePicker(state) },
             confirmButton = {
                 TextButton(onClick = {
-                    time = LocalTime.of(state.hour, state.minute)
+                    onTime(LocalTime.of(state.hour, state.minute))
                     pickingTime = false
                 }) { Text("OK") }
             },
             dismissButton = { TextButton(onClick = { pickingTime = false }) { Text("Cancel") } },
         )
     }
-}
-
-@Composable
-private fun SectionLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-    )
-}
-
-@Composable
-private fun Hint(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.bodySmall,
-        color = MaterialTheme.colorScheme.onSurfaceVariant,
-        modifier = Modifier.fillMaxWidth(),
-    )
 }
