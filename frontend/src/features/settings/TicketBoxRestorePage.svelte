@@ -2,6 +2,7 @@
   import { route } from '@mateothegreat/svelte5-router'
   import { ApiError } from '../../lib/api/client.js'
   import { formatInstant } from '../../lib/time.js'
+  import { GITHUB_PATH, TMDB_PATH } from '../../lib/brandMarks.js'
   import {
     getTicketBoxRestore,
     startTicketBoxRestore,
@@ -18,6 +19,8 @@
    * is the server's to validate — the body goes up verbatim.
    * @typedef {{ schemaVersion: 5, exportedAt?: unknown, history?: unknown, ratings?: unknown, watchlist?: unknown, favorites?: unknown }} Dump
    */
+
+  const TICKET_BOX_URL = 'https://github.com/mbyte-labs/ticket-box'
 
   // Files larger than this are refused before being read: the server caps the
   // body at the same size, and a real dump is a few hundred KB at most.
@@ -289,16 +292,70 @@
     <p class="status error">Could not reach the server.</p>
     <button type="button" class="ghost" onclick={probe}>Retry</button>
   {:else if view.state === 'pick' || view.state === 'ready' || view.state === 'starting'}
-    <p class="intro">
-      Watch history, ratings, watchlist and favorites from the file are imported into your library.
-      For every movie or show that has watches in the file, your existing sofalog watches for it are
-      replaced by the file's. Ratings, watchlist entries and favorites are added or updated. Nothing
-      else is touched.
-    </p>
-    <p class="intro">
-      Movies and shows not yet in your library are fetched from
-      <a href="/settings/data-sources" use:route>TMDB</a>, so a large file takes a while.
-    </p>
+    <!-- The TMDB mark's own paint server: every page that draws the mark owns
+         its gradient id, so two live <defs> never collide. -->
+    <svg width="0" height="0" class="svg-defs" aria-hidden="true">
+      <defs>
+        <linearGradient id="tmdb-grad-restore" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0" stop-color="#90cea1" />
+          <stop offset="1" stop-color="#01b4e4" />
+        </linearGradient>
+      </defs>
+    </svg>
+
+    <div class="about">
+      <div class="panel story">
+        <div class="marks" aria-hidden="true">
+          <span class="disc"><img src="./icons/ticket-box.svg" alt="" /></span>
+          <span class="arrow">›</span>
+          <span class="disc"><img class="sofa" src="./icons/logo-mark.svg" alt="" /></span>
+        </div>
+        <h2>From Ticket Box to Sofalog</h2>
+        <p>
+          Ticket Box was where this started: the first app I built to keep track of what I watch. I
+          have since moved on to Sofalog, and this is the app I work on now. If you used Ticket Box,
+          you do not have to start over — export a backup there and bring your watch history,
+          ratings, watchlist and favorites with you.
+        </p>
+      </div>
+
+      <a class="panel link" href={TICKET_BOX_URL} target="_blank" rel="noreferrer noopener">
+        <svg class="github" viewBox="0 0 24 24" aria-hidden="true">
+          <path d={GITHUB_PATH} />
+        </svg>
+        <span class="text">
+          <span class="title">Ticket Box on GitHub</span>
+          <span class="blurb">The source code of the app this backup comes from.</span>
+        </span>
+        <span class="chevron" aria-hidden="true">›</span>
+      </a>
+
+      <div class="panel">
+        <h3>What gets imported</h3>
+        <p>
+          Watch history, ratings, watchlist and favorites from the file are imported into your
+          library. For every movie or show that has watches in the file, your existing sofalog
+          watches for it are replaced by the file's. Ratings, watchlist entries and favorites are
+          added or updated. Nothing else is touched.
+        </p>
+      </div>
+
+      <div class="panel provider">
+        <svg class="tmdb" viewBox="0 0 24 24" role="img" aria-label="TMDB">
+          <path d={TMDB_PATH} fill="url(#tmdb-grad-restore)" />
+        </svg>
+        <div>
+          <h3>Titles come from TMDB</h3>
+          <p>
+            The backup names movies and shows by their TMDB id and holds nothing else about them.
+            For each one not yet in your library, sofalog asks The Movie Database for its details,
+            seasons, episodes and artwork, and stores them here — so a large file takes a while.
+            Your watch history is never sent to TMDB.
+          </p>
+          <a class="more" href="/settings/data-sources" use:route>About TMDB and your data</a>
+        </div>
+      </div>
+    </div>
 
     {#if view.state === 'pick'}
       <!-- The input is visually hidden but still in the tab order; the label
@@ -505,15 +562,154 @@
     margin-bottom: 1rem;
   }
 
-  .intro {
-    margin: 0 0 1rem;
+  /* The explanation before the file is picked: four stacked panels, the
+     settings cards' own surface. */
+  .about {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
     max-width: 44rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .svg-defs {
+    position: absolute;
+  }
+
+  .panel {
+    padding: 1rem 1.1rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+  }
+
+  .panel h2,
+  .panel h3 {
+    margin: 0 0 0.35rem;
+    color: var(--text);
+    font-size: 0.95rem;
+    font-weight: 600;
+    text-transform: none;
+    letter-spacing: normal;
+  }
+
+  .panel p {
+    margin: 0;
     color: var(--text-dim);
+    font-size: 0.9rem;
     line-height: 1.5;
   }
 
-  .intro a {
+  .story {
+    padding: 1.4rem 1.1rem 1.2rem;
+    text-align: center;
+  }
+
+  .story h2 {
+    margin-bottom: 0.5rem;
+    font-size: 1.1rem;
+  }
+
+  .story p {
+    max-width: 36rem;
+    margin: 0 auto;
+    color: var(--text);
+  }
+
+  .marks {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.9rem;
+    margin-bottom: 0.9rem;
+  }
+
+  .disc {
+    display: grid;
+    place-items: center;
+    width: 3.5rem;
+    height: 3.5rem;
+    border-radius: 50%;
+    background: var(--accent-tint);
+  }
+
+  .disc img {
+    width: 2.4rem;
+    height: 2.4rem;
+  }
+
+  /* The sofa mark carries more empty space around its shape than the ticket. */
+  .disc img.sofa {
+    width: 2.9rem;
+    height: 2.9rem;
+  }
+
+  .arrow,
+  .chevron {
+    color: var(--text-dim);
+    font-size: 1.5rem;
+    line-height: 1;
+  }
+
+  a.link {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+    text-decoration: none;
+    transition:
+      border-color var(--ease-lift),
+      transform var(--ease-lift);
+  }
+
+  a.link:hover {
+    border-color: var(--accent);
+    transform: translateY(-1px);
+  }
+
+  .github {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+    fill: var(--text);
+  }
+
+  .text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    flex: 1;
+    min-width: 0;
+  }
+
+  .title {
+    color: var(--text);
+    font-weight: 600;
+  }
+
+  .blurb {
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    line-height: 1.4;
+  }
+
+  .provider {
+    display: flex;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .tmdb {
+    width: 2.5rem;
+    height: 2.5rem;
+    flex-shrink: 0;
+  }
+
+  .more {
+    display: inline-block;
+    margin-top: 0.6rem;
     color: var(--accent-soft);
+    font-size: 0.9rem;
+    font-weight: 600;
   }
 
   .skeleton {
@@ -855,6 +1051,10 @@
   }
 
   @media (hover: none) {
+    a.link:hover {
+      transform: none;
+    }
+
     .file-button,
     button {
       min-height: 2.75rem;

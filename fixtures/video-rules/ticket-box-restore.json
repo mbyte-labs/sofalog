@@ -1,0 +1,118 @@
+{
+  "now": "2026-11-19T12:00:00Z",
+  "instants": [
+    { "raw": "2026-01-02T03:04:05Z", "want": "2026-01-02T03:04:05Z" },
+    { "raw": "2026-01-02T03:04:05.678Z", "want": "2026-01-02T03:04:05Z" },
+    { "raw": "2026-01-02T05:04:05+02:00", "want": "2026-01-02T03:04:05Z" },
+    { "raw": "2026-11-19T12:00:00Z", "want": "2026-11-19T12:00:00Z" },
+    { "raw": "2026-11-19T12:00:00.500Z", "reason": "future_timestamp" },
+    { "raw": "2027-01-01T00:00:00Z", "reason": "future_timestamp" },
+    { "raw": "2026-01-02", "reason": "invalid_timestamp" },
+    { "raw": "2026-01-02T03:04Z", "reason": "invalid_timestamp" },
+    { "raw": "2026-01-02 03:04:05", "reason": "invalid_timestamp" },
+    { "raw": "", "reason": "invalid_timestamp" }
+  ],
+  "validate": [
+    {
+      "name": "every history refusal names its first failing check",
+      "dump": {
+        "schemaVersion": 5,
+        "history": [
+          { "type": "movie", "tmdbId": 603, "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "movie", "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "movie", "tmdbId": 0, "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "movie", "tmdbId": 603, "addedAt": "yesterday", "historyType": "watch" },
+          { "type": "movie", "tmdbId": 603, "addedAt": "2030-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "movie", "tmdbId": 603, "addedAt": "2026-01-01T10:00:00Z", "historyType": "glance" },
+          { "type": "episode", "tmdbId": 9, "season": 1, "episode": 1, "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "episode", "showTmdbId": 1399, "season": 1, "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "episode", "showTmdbId": 1399, "season": -1, "episode": 1, "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" },
+          { "type": "episode", "showTmdbId": 1399, "season": 0, "episode": 0, "addedAt": "2026-01-01T10:00:00Z", "historyType": "scrobble" },
+          { "type": "season", "tmdbId": 5, "addedAt": "2026-01-01T10:00:00Z", "historyType": "watch" }
+        ]
+      },
+      "skips": [
+        { "kind": "history", "reason": "missing_tmdb_id" },
+        { "kind": "history", "reason": "missing_tmdb_id" },
+        { "kind": "history", "reason": "invalid_timestamp" },
+        { "kind": "history", "reason": "future_timestamp" },
+        { "kind": "history", "reason": "invalid_watch_type" },
+        { "kind": "history", "reason": "missing_tmdb_id" },
+        { "kind": "history", "reason": "missing_position" },
+        { "kind": "history", "reason": "missing_position" },
+        { "kind": "history", "reason": "unknown_type" }
+      ],
+      "movies": [603],
+      "shows": [1399]
+    },
+    {
+      "name": "ratings: seasons refused, range before id, groups sorted by id",
+      "dump": {
+        "schemaVersion": 5,
+        "ratings": [
+          { "type": "season", "tmdbId": 7, "rating": 8, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "person", "tmdbId": 7, "rating": 8, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "movie", "rating": 11, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "movie", "tmdbId": 603, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "movie", "rating": 8, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "show", "tmdbId": 1399, "rating": 9, "ratedAt": "nope" },
+          { "type": "movie", "tmdbId": 900, "rating": 7, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "movie", "tmdbId": 603, "rating": 8, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "show", "tmdbId": 1399, "rating": 9, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "episode", "showTmdbId": 66, "season": 1, "episode": 2, "rating": 6, "ratedAt": "2026-01-01T10:00:00Z" },
+          { "type": "episode", "showTmdbId": 66, "season": 1, "rating": 6, "ratedAt": "2026-01-01T10:00:00Z" }
+        ]
+      },
+      "skips": [
+        { "kind": "rating", "reason": "season_rating_unsupported" },
+        { "kind": "rating", "reason": "unknown_type" },
+        { "kind": "rating", "reason": "rating_out_of_range" },
+        { "kind": "rating", "reason": "rating_out_of_range" },
+        { "kind": "rating", "reason": "missing_tmdb_id" },
+        { "kind": "rating", "reason": "invalid_timestamp" },
+        { "kind": "rating", "reason": "missing_position" }
+      ],
+      "movies": [603, 900],
+      "shows": [66, 1399]
+    },
+    {
+      "name": "watchlist and favorites take movies and shows only",
+      "dump": {
+        "schemaVersion": 5,
+        "watchlist": [
+          { "type": "movie", "tmdbId": 11, "listedAt": "2026-01-01T10:00:00Z" },
+          { "type": "season", "tmdbId": 12, "listedAt": "2026-01-01T10:00:00Z" },
+          { "type": "episode", "tmdbId": 13, "listedAt": "2026-01-01T10:00:00Z" },
+          { "type": "list", "tmdbId": 14, "listedAt": "2026-01-01T10:00:00Z" },
+          { "type": "show", "listedAt": "2026-01-01T10:00:00Z" },
+          { "type": "show", "tmdbId": 15, "listedAt": "2031-01-01T10:00:00Z" }
+        ],
+        "favorites": [
+          { "type": "show", "tmdbId": 21, "favoritedAt": "2026-01-01T10:00:00Z" },
+          { "type": "episode", "tmdbId": 22, "favoritedAt": "2026-01-01T10:00:00Z" },
+          { "type": "movie", "favoritedAt": "2026-01-01T10:00:00Z" },
+          { "type": "movie", "tmdbId": 23, "favoritedAt": "" }
+        ]
+      },
+      "skips": [
+        { "kind": "watchlist", "reason": "watchlist_target_unsupported" },
+        { "kind": "watchlist", "reason": "watchlist_target_unsupported" },
+        { "kind": "watchlist", "reason": "unknown_type" },
+        { "kind": "watchlist", "reason": "missing_tmdb_id" },
+        { "kind": "watchlist", "reason": "future_timestamp" },
+        { "kind": "favorite", "reason": "unknown_type" },
+        { "kind": "favorite", "reason": "missing_tmdb_id" },
+        { "kind": "favorite", "reason": "invalid_timestamp" }
+      ],
+      "movies": [11],
+      "shows": [21]
+    }
+  ],
+  "episode_hints": [
+    { "numbers": [1, 2, 3], "season": 0, "episode": 9, "hint": "specials_numbering", "last": null },
+    { "numbers": [], "season": 4, "episode": 1, "hint": "season_missing", "last": null },
+    { "numbers": [1, 2, 3], "season": 2, "episode": 4, "hint": "past_season_end", "last": 3 },
+    { "numbers": [1, 3, 4], "season": 2, "episode": 2, "hint": "numbering_gap", "last": 4 },
+    { "numbers": [2, 3], "season": 2, "episode": 1, "hint": "numbering_gap", "last": 3 }
+  ]
+}

@@ -2527,6 +2527,8 @@ start, but the video section is meant to reach it, and the first screen is Up Ne
   ([D-012](#d-012--completion-counts-aired-non-special-episodes-only)), the Up Next pick, the
   upcoming window, the statistics folds and the user's day
   ([D-038](#d-038--every-instant-is-stored-in-utc-every-day-is-measured-in-the-users-zone)).
+  The device's TMDB account and Ticket Box restore add theirs: the rating rounding, the outbox
+  backoff, the instant rule, the file's validation and the episode hint.
   This is the design's real cost. It is held by **shared fixtures**: JSON cases (a log and a
   catalog in, the expected status / pick / numbers out) that both the Go and the Kotlin test
   suites run, so a rule changed on one side fails the other.
@@ -2539,7 +2541,11 @@ start, but the video section is meant to reach it, and the first screen is Up Ne
 
 No account and no server. Everything lives on the phone, which makes the phone the only copy — so
 the app offers a **backup file** (export, and import of its own export). The time zone and the
-watch region are the device's.
+watch region are **settings of the app**, kept in its own database: the zone follows the device
+until the user picks one ([D-038](#d-038--every-instant-is-stored-in-utc-every-day-is-measured-in-the-users-zone)),
+and the region — an environment variable on a server — is a country picked on the device,
+defaulting to `RO`; changing it costs each tracked title one refetch on its next view, by the same
+`sofalog_region` marker ([D-022](#d-022--online-providers-are-tmdbs-watch-provider-data-for-one-server-configured-country)).
 
 **Linked — the server is the source of truth**
 
@@ -2588,12 +2594,49 @@ watch region are the device's.
 ordinary commands, so the server's rules apply) or **discard** it and take the server's state.
 Unlinking keeps the local copy and the app continues standalone; the token is revoked.
 
+**The app's Settings mirror the web's, as far as a device can.** Data Sources, the time zone and
+the watch region are the device's own. The account's server parts (name, sign-in, matching), Users
+and Log out — which on a device means "remove the link to the server" — are listed and disabled
+until linking exists.
+
+**The TMDB account link and the Ticket Box restore run on the device** — reversed on request; this
+decision first kept both on the web. A standalone user has no server to run them, and both are
+what a person arriving from Trakt or TMDB needs on day one.
+
+- **The TMDB account** ([D-029](#d-029--ratings-push-one-way-to-the-users-own-tmdb-account),
+  [D-036](#d-036--the-link-is-followed-by-a-one-time-setup-pull-push-or-skip-per-kind-and-per-kind-switches))
+  keeps every rule of the server's: the link is the consent and the setup the opt-in; an outbox
+  row is written in the local write's transaction, guarded in SQL by the link and that kind's
+  switch; `updated_at` is the replace marker; a refused session breaks the link and empties the
+  queue; a pull overwrites ratings, inserts listings if absent and never queues anything back; the
+  watch history is never sent. Three things differ. The approval returns through the app's own
+  link (`sofalog://tmdb-link`) instead of a callback route, with the pending token persisted and
+  the exchange retried when the app comes back to the front, because a browser may not follow a
+  custom scheme. The outbox is **TMDB-addressed** (a movie's or show's id, plus a position for an
+  episode), so a row is sent without a local lookup. And **nothing runs in the background**: the
+  queue moves only while the app is on screen, and the setup's import dies with the process —
+  its end is what marks the setup done, so one cut short is offered again and converges. The
+  session id is a secret like the key: it is kept out of the database, encrypted in the app's
+  no-backup storage, so no device backup, transfer or backup file carries it; a library restored
+  without it shows the link as broken and asks to link again.
+- **The Ticket Box restore** ([D-023](#d-023--a-ticket-box-dump-is-the-one-import-path)) keeps the
+  server's rules too — version 5 only with the lenient probe before the strict decode, replace
+  only for a group the file has watches for, skip and report with the 200 cap, the breaker after
+  three outages, one transaction and at most one recompute per group — and reads the **file**:
+  it calls nobody but TMDB, for the titles it names. An episode is resolved by its own TMDB id
+  first through the device's `episodes.tmdb_id` column, which it has always had. It adds a
+  **Stop** action (the job ends as cancelled; committed groups stay), since the only alternative
+  on a phone is killing the app.
+
+Both write through the tracking gate like any other action, and both must be revisited when
+linking ships: with a server as the source of truth their writes have to become commands, or the
+pages hide while linked.
+
 **Not in the app:** the Jellyfin scan and its synced tile
-([D-033](#d-033--the-jellyfin-tile-mirrors-the-households-server-when-one-is-configured)),
-matching watchlists ([D-028](#d-028--matching-watchlists-is-opt-in-and-only-ever-shows-the-overlap-with-your-own-list)),
-the TMDB account link ([D-029](#d-029--ratings-push-one-way-to-the-users-own-tmdb-account)) and
-the Ticket Box restore. They are server features and stay on the web; a linked user's server
-still runs them, and their results reach the app only where they are ordinary user state.
+([D-033](#d-033--the-jellyfin-tile-mirrors-the-households-server-when-one-is-configured)) and
+matching watchlists ([D-028](#d-028--matching-watchlists-is-opt-in-and-only-ever-shows-the-overlap-with-your-own-list)).
+They need a server and stay on the web; a linked user's server still runs them, and their results
+reach the app only where they are ordinary user state.
 
 **Delivery** is its own track beside the milestones, in three phases: **(1)** the standalone
 app, which changes nothing on the server; **(2)** the server side — API tokens and the Devices

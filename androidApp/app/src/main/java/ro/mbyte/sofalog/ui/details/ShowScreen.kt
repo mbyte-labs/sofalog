@@ -357,7 +357,6 @@ fun ShowScreen(tmdbId: Long, onMenu: () -> Unit, onOpenSeason: (Int) -> Unit, on
                                 details.episodeRuntimeMin?.let { "~$it min" },
                             ),
                             byline = details.createdBy.takeIf { it.isNotEmpty() }?.let { Byline("Created by", it.joinToString(", ")) },
-                            score = show.voteAverage,
                             genres = show.genres,
                             tagline = details.tagline,
                             overview = show.overview,
@@ -519,13 +518,14 @@ fun ShowScreen(tmdbId: Long, onMenu: () -> Unit, onOpenSeason: (Int) -> Unit, on
                 }
             }
             val collapsed by rememberHeroCollapse(list, loaded = show != null, bandHeight = bandHeight)
-            OverlaidTopBar(show?.title ?: "Show", collapsed, wide, onMenu) { disc ->
+            // No overflow menu: drop / resume lives in the progress section alone.
+            OverlaidTopBar(show?.title ?: "Show", collapsed, wide, onMenu) {
                 if (show != null) {
                     StatusBadges(
                         watched = watched,
                         watchlisted = state.user.watchlisted,
                         favorited = state.user.favorited,
-                        disc = disc,
+                        dropped = bundle.status == ShowStatus.DROPPED,
                     )
                 }
             }

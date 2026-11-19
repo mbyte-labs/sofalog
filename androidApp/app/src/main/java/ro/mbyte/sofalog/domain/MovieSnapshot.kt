@@ -17,8 +17,17 @@ import kotlinx.serialization.json.jsonObject
  * by the UI.
  */
 
-/** The one country whose "where to watch" listing the app shows. */
+/** The default country of the "where to watch" listing, until the user picks one in Settings. */
 const val WATCH_REGION = "RO"
+
+/**
+ * The one country whose "where to watch" listing the app shows (D-022) — a device setting. A body
+ * pruned to another country reads as incomplete, so changing this costs each title one refetch on
+ * its next view.
+ */
+object WatchRegion {
+    @Volatile var current: String = WATCH_REGION
+}
 
 const val MEDIA_GALLERY_MAX = 30
 const val STREAMING_MAX = 12
@@ -104,7 +113,7 @@ internal const val REGION_MARKER = "sofalog_region"
  * Keeps one country of the `watch/providers` section and marks which — TMDB sends every country,
  * close to half the body. A body that cannot be parsed, or has no section, is returned as is.
  */
-fun pruneWatchProviders(body: String, region: String = WATCH_REGION): String {
+fun pruneWatchProviders(body: String, region: String = WatchRegion.current): String {
     val root = try {
         snapshotJson.parseToJsonElement(body) as? JsonObject
     } catch (e: SerializationException) {
@@ -123,7 +132,7 @@ fun pruneWatchProviders(body: String, region: String = WATCH_REGION): String {
  * True when a stored body should be refetched whatever its age: it predates an appended section,
  * or its listing was pruned to another country.
  */
-fun movieSnapshotIncomplete(body: String, region: String = WATCH_REGION): Boolean =
+fun movieSnapshotIncomplete(body: String, region: String = WatchRegion.current): Boolean =
     snapshotIncomplete(body, APPENDED_SECTIONS, region)
 
 internal fun snapshotIncomplete(body: String, sections: List<String>, region: String): Boolean {
@@ -140,7 +149,7 @@ internal fun snapshotIncomplete(body: String, sections: List<String>, region: St
 }
 
 /** Projects a stored body. A body that cannot be parsed reads as a movie with no extras. */
-fun parseMovieDetails(body: String, region: String = WATCH_REGION): MovieDetails {
+fun parseMovieDetails(body: String, region: String = WatchRegion.current): MovieDetails {
     val snap = try {
         snapshotJson.decodeFromString<Snapshot>(body)
     } catch (e: SerializationException) {

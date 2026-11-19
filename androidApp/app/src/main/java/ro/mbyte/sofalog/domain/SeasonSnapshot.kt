@@ -57,12 +57,40 @@ fun parseSeasonDetails(body: String?): SeasonDetails {
     return SeasonDetails(
         score = snap.voteAverage.takeIf { it > 0 },
         cast = aggregateCast(snap.aggregateCredits?.cast.orEmpty()),
-        episodeScores = snap.episodes.filter { it.voteAverage > 0 }.associate { it.episodeNumber to it.voteAverage },
+        episodeScores = episodeScores(snap.episodes.map { it.episodeNumber to it.voteAverage }),
         regulars = billedCast(snap.credits.cast),
         episodeVotes = snap.episodes.filter { it.voteCount > 0 }.associate { it.episodeNumber to it.voteCount },
         guestStars = snap.episodes.associate { it.episodeNumber to billedCast(it.guestStars) }.filterValues { it.isNotEmpty() },
     )
 }
+
+/**
+ * TMDB's score per episode number out of a stored body, and nothing else — the history feed's
+ * read, which runs for every season on a page and so skips the cast lists [parseSeasonDetails]
+ * builds. A missing or unparsable body reads as no scores.
+ */
+fun parseEpisodeScores(body: String?): Map<Int, Double> = try {
+    body?.let { stored ->
+        episodeScores(snapshotJson.decodeFromString<SeasonScores>(stored).episodes.map { it.episodeNumber to it.voteAverage })
+    }.orEmpty()
+} catch (e: SerializationException) {
+    emptyMap()
+} catch (e: IllegalArgumentException) {
+    emptyMap()
+}
+
+/** The one rule for an episode's score: an episode without votes is absent. */
+private fun episodeScores(episodes: List<Pair<Int, Double>>): Map<Int, Double> =
+    episodes.filter { it.second > 0 }.toMap()
+
+@Serializable
+private data class SeasonScores(val episodes: List<SnapScoreOnly> = emptyList())
+
+@Serializable
+private data class SnapScoreOnly(
+    @SerialName("episode_number") val episodeNumber: Int = 0,
+    @SerialName("vote_average") val voteAverage: Double = 0.0,
+)
 
 /**
  * True when a stored season body predates the episode page's sections — the regulars and the

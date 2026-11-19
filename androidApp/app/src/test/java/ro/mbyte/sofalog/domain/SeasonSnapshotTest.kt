@@ -95,4 +95,17 @@ class SeasonSnapshotTest {
         assertEquals(SeasonDetails.EMPTY, parseSeasonDetails("not json"))
         assertEquals("not json", compactSeasonBody("not json"))
     }
+
+    @Test
+    fun theHistoryFeedReadsTheSameEpisodeScores() {
+        assertEquals(parseSeasonDetails(body).episodeScores, parseEpisodeScores(body))
+        assertEquals(parseSeasonDetails(body).episodeScores, parseEpisodeScores(compactSeasonBody(body)))
+        // An episode without votes is absent, not zero.
+        assertEquals(
+            mapOf(1 to 8.2),
+            parseEpisodeScores("""{"episodes": [{"episode_number": 1, "vote_average": 8.2}, {"episode_number": 2, "vote_average": 0}]}"""),
+        )
+        assertTrue(parseEpisodeScores(null).isEmpty())
+        assertTrue(parseEpisodeScores("not json").isEmpty())
+    }
 }

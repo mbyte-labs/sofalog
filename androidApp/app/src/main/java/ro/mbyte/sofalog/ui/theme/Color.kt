@@ -17,3 +17,15 @@ val OnBadge = Color.White
 
 /** The user's own rating on a history poster — the web card's pill colour. */
 val UserRatingBadge = Color(0xFFE8435A)
+
+/** The watched item colour — the web's --accent. Backs the top bar's white ✓ on a watched title. */
+val WatchedItemColor = Color(0xFF0EA5E9)
+
+/** The top bar's watchlist mark — the web's --cta. */
+val WatchlistItemColor = Color(0xFF7C5CFF)
+
+/**
+ * The quiet badge background: a search poster's kind label, score and dropped tab, and the top
+ * bar's dropped mark. Dropped is deliberately neutral — a state, not an alarm.
+ */
+val NeutralBadge = Color.Black.copy(alpha = 0.6f)

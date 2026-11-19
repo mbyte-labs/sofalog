@@ -15,11 +15,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 
+/**
+ * A page under the app's plain top bar: the menu button, as on every page, and a title. There is
+ * no Back button anywhere in the app — going back is the system gesture.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetailScaffold(
     title: String,
-    onBack: () -> Unit,
+    onMenu: () -> Unit,
     message: String?,
     onMessageShown: () -> Unit,
     content: @Composable (Modifier) -> Unit,
@@ -32,7 +36,7 @@ fun DetailScaffold(
         topBar = {
             TopAppBar(
                 title = { Text(title, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
+                navigationIcon = { TextButton(onClick = onMenu) { Text("☰") } },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },

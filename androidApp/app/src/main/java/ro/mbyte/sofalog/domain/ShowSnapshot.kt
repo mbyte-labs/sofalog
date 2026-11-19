@@ -57,11 +57,11 @@ private val SHOW_APPENDED_SECTIONS =
  * True when a stored show body should be refetched whatever its age: it predates an appended
  * section — every show tracked before the page read them — or was pruned to another country.
  */
-fun showSnapshotIncomplete(body: String, region: String = WATCH_REGION): Boolean =
+fun showSnapshotIncomplete(body: String, region: String = WatchRegion.current): Boolean =
     snapshotIncomplete(body, SHOW_APPENDED_SECTIONS, region)
 
 /** Projects a stored body. A body that cannot be parsed reads as a show with no extras. */
-fun parseShowDetails(body: String, region: String = WATCH_REGION): ShowDetails {
+fun parseShowDetails(body: String, region: String = WatchRegion.current): ShowDetails {
     val snap = try {
         snapshotJson.decodeFromString<ShowSnapshot>(body)
     } catch (e: SerializationException) {

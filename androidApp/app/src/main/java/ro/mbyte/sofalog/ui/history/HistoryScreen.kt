@@ -1,6 +1,7 @@
 package ro.mbyte.sofalog.ui.history
 
 import androidx.compose.foundation.background
+import ro.mbyte.sofalog.domain.UserZone
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -48,9 +49,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -74,13 +74,19 @@ import ro.mbyte.sofalog.domain.groupByMonth
 import ro.mbyte.sofalog.ui.common.CenteredLoading
 import ro.mbyte.sofalog.ui.common.CenteredMessage
 import ro.mbyte.sofalog.ui.common.Poster
+import ro.mbyte.sofalog.ui.common.MarkTab
+import ro.mbyte.sofalog.ui.common.PosterBadge
+import ro.mbyte.sofalog.ui.common.PosterShape
 import ro.mbyte.sofalog.ui.common.episodeCode
 import ro.mbyte.sofalog.ui.common.formatHistoryInstant
 import ro.mbyte.sofalog.ui.common.formatMonth
 import ro.mbyte.sofalog.ui.common.repository
+import ro.mbyte.sofalog.ui.details.parts.DetailIcons
+import ro.mbyte.sofalog.ui.details.parts.HeartRed
+import ro.mbyte.sofalog.ui.theme.NeutralBadge
 import ro.mbyte.sofalog.ui.theme.OnBadge
 import ro.mbyte.sofalog.ui.theme.UserRatingBadge
-import java.time.ZoneId
+import ro.mbyte.sofalog.ui.theme.WatchlistItemColor
 
 /** The feed's page size, the web page's. */
 private const val PAGE = 48
@@ -340,7 +346,7 @@ private fun HistoryGrid(
     onLoadMore: () -> Unit,
 ) {
     // Months are the device's, as every instant the app shows is.
-    val sections = remember(page.items) { groupByMonth(page.items, ZoneId.systemDefault()) { it.watchedAt } }
+    val sections = remember(page.items) { groupByMonth(page.items, UserZone.current) { it.watchedAt } }
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = 150.dp),
         modifier = Modifier.fillMaxSize(),
@@ -385,34 +391,47 @@ private fun MonthBar(label: String) {
     }
 }
 
+/**
+ * One watch as a poster, the search card's corners: top-left the library's marks (on the
+ * watchlist, in the favorites — no watched tab, since every card here is a watch), the user's own
+ * rating top-right, the kind bottom-left and TMDB's score bottom-right.
+ */
 @Composable
 private fun HistoryCard(entry: HistoryItem, onClick: () -> Unit, onLongClick: () -> Unit) {
     // The poster names the show; the caption names the episode, as on the web card.
     val caption = caption(entry)
     val art = artTitle(entry)
-    Column(Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick)) {
+    Column(
+        Modifier.combinedClickable(onClick = onClick, onLongClick = onLongClick),
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
         Box(Modifier.clip(PosterShape)) {
             Poster(entry.posterPath, art, Modifier.fillMaxWidth())
-            Badge(
-                "✓",
-                MaterialTheme.colorScheme.primary,
-                MaterialTheme.colorScheme.onPrimary,
-                RoundedCornerShape(bottomEnd = 6.dp),
-                Modifier.align(Alignment.TopStart),
+            // An episode wears its show's watchlist and favorite marks.
+            Row(Modifier.align(Alignment.TopStart).clip(RoundedCornerShape(bottomEnd = 6.dp))) {
+                if (entry.watchlisted) MarkTab(DetailIcons.Bookmark, "On your watchlist", WatchlistItemColor)
+                if (entry.favorited) MarkTab(DetailIcons.Heart, "In your favorites", HeartRed)
+            }
+            PosterBadge(
+                if (entry is HistoryItem.Movie) "Movie" else "Episode",
+                NeutralBadge,
+                OnBadge,
+                RoundedCornerShape(topEnd = 6.dp),
+                Modifier.align(Alignment.BottomStart),
             )
             entry.userRating?.let {
-                Badge(
+                PosterBadge(
                     it.toString(),
                     UserRatingBadge,
                     OnBadge,
                     RoundedCornerShape(bottomStart = 6.dp),
-                    Modifier.align(Alignment.TopEnd),
+                    Modifier.align(Alignment.TopEnd).semantics { contentDescription = "Your rating $it" },
                 )
             }
             entry.score?.let {
-                Badge(
+                PosterBadge(
                     "♥ %.1f".format(it),
-                    Color.Black.copy(alpha = 0.6f),
+                    NeutralBadge,
                     OnBadge,
                     RoundedCornerShape(topStart = 6.dp),
                     Modifier.align(Alignment.BottomEnd),
@@ -424,6 +443,7 @@ private fun HistoryCard(entry: HistoryItem, onClick: () -> Unit, onLongClick: ()
             style = MaterialTheme.typography.titleSmall,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         )
         Text(
@@ -434,18 +454,4 @@ private fun HistoryCard(entry: HistoryItem, onClick: () -> Unit, onLongClick: ()
             overflow = TextOverflow.Ellipsis,
         )
     }
-}
-
-private val PosterShape = RoundedCornerShape(8.dp)
-
-/** A corner badge on the poster; [shape] rounds only the corner that faces the artwork. */
-@Composable
-private fun Badge(text: String, background: Color, content: Color, shape: Shape, modifier: Modifier) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = content,
-        fontWeight = FontWeight.SemiBold,
-        modifier = modifier.clip(shape).background(background).padding(horizontal = 8.dp, vertical = 4.dp),
-    )
 }

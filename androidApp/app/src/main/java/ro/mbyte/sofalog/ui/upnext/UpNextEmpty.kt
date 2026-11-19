@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import ro.mbyte.sofalog.R
+import ro.mbyte.sofalog.ui.common.ActionCard
 import ro.mbyte.sofalog.ui.details.parts.DetailIcons
 
 /** How many pieces enter one after another: the logo, the text, then the three cards. */
@@ -59,7 +60,7 @@ private const val STEP_MILLIS = 90L
  * The mark is the launcher's coloured foreground, drifting over a glow that breathes with it. The
  * pieces enter in turn the first time the page is shown; the step is saved, so a rotation or a
  * return from another page does not replay the entrance. No provider credit here — that lives on
- * the data-sources page.
+ * the About page.
  */
 @Composable
 fun UpNextEmpty(
@@ -124,7 +125,7 @@ fun UpNextEmpty(
                 ActionCard(
                     DetailIcons.Settings,
                     "Settings",
-                    "Sync with your TMDB account, pick your country",
+                    "Your TMDB account, backups, time zone and country",
                     onSettings,
                 )
             }
@@ -171,38 +172,5 @@ private fun FloatingLogo() {
                 .size(200.dp)
                 .graphicsLayer { translationY = (4f - 8f * phase).dp.toPx() },
         )
-    }
-}
-
-@Composable
-private fun ActionCard(icon: ImageVector, title: String, text: String, onClick: () -> Unit) {
-    Card(onClick = onClick, modifier = Modifier.fillMaxWidth()) {
-        Row(
-            Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(40.dp)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.16f), CircleShape),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.titleMedium)
-                Text(
-                    text,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Icon(
-                DetailIcons.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
     }
 }

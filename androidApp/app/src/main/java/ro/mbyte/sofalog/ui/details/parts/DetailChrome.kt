@@ -1,6 +1,7 @@
 package ro.mbyte.sofalog.ui.details.parts
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,7 +28,10 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -38,6 +42,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import ro.mbyte.sofalog.ui.theme.NeutralBadge
+import ro.mbyte.sofalog.ui.theme.WatchedItemColor
+import ro.mbyte.sofalog.ui.theme.WatchlistItemColor
 
 /*
  * What a details page wears around its sections: the app bar laid over the hero, the status marks
@@ -69,8 +76,8 @@ fun rememberHeroCollapse(list: LazyListState, loaded: Boolean, bandHeight: Dp): 
 
 /**
  * A real app bar laid over the page: clear above the hero, so the artwork runs behind it and the
- * status bar, then solid — with the title — once the hero has scrolled away. [badges] is handed
- * the disc colour its marks sit on while the bar is still clear.
+ * status bar, then solid — with the title — once the hero has scrolled away. [badges] are the
+ * status marks at its end. It carries no overflow menu: a page's actions live in the page.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -79,7 +86,7 @@ fun OverlaidTopBar(
     collapsed: Float,
     wide: Boolean,
     onMenu: () -> Unit,
-    badges: @Composable (disc: Color) -> Unit,
+    badges: @Composable () -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
     val disc = scheme.surface.copy(alpha = 0.55f * (1f - collapsed))
@@ -95,7 +102,9 @@ fun OverlaidTopBar(
                 modifier = Modifier.padding(start = if (wide) 20.dp else 4.dp),
             ) { Icon(DetailIcons.Menu, "Menu") }
         },
-        actions = { Box(Modifier.padding(end = if (wide) 28.dp else 12.dp)) { badges(disc) } },
+        actions = {
+            Box(Modifier.padding(end = if (wide) 28.dp else 12.dp)) { badges() }
+        },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = scheme.surfaceContainer.copy(alpha = collapsed)),
     )
 }
@@ -103,22 +112,38 @@ fun OverlaidTopBar(
 /**
  * What the user has done with this title, readable at a glance from anywhere on the page: a mark
  * per state that holds, none for one that does not. They only report — the toggles are in the
- * History section. [disc] is the menu button's backing, there while the bar lies over artwork.
+ * History section. One anatomy for all of them — a white glyph on a disc in the state's own
+ * colour — and the same over artwork as on the solid bar. Dropped alone is neutral: the search
+ * poster's dark tab, not a colour of its own.
  */
 @Composable
-fun StatusBadges(watched: Boolean, watchlisted: Boolean, favorited: Boolean, disc: Color, modifier: Modifier = Modifier) {
-    Row(modifier, horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        val accent = MaterialTheme.colorScheme.primary
-        if (watched) StatusBadge(DetailIcons.Check, "Watched", accent, disc)
-        if (watchlisted) StatusBadge(DetailIcons.Bookmark, "On your watchlist", accent, disc)
-        if (favorited) StatusBadge(DetailIcons.Heart, "In your favorites", HeartRed, disc)
+fun StatusBadges(
+    watched: Boolean,
+    watchlisted: Boolean,
+    favorited: Boolean,
+    modifier: Modifier = Modifier,
+    dropped: Boolean = false,
+) {
+    Row(modifier, horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (watched) StatusBadge(DetailIcons.CheckBold, "Watched", WatchedItemColor)
+        if (dropped) StatusBadge(DetailIcons.Dropped, "Dropped", NeutralBadge)
+        if (watchlisted) StatusBadge(DetailIcons.Bookmark, "On your watchlist", WatchlistItemColor)
+        if (favorited) StatusBadge(DetailIcons.Heart, "In your favorites", HeartRed)
     }
 }
 
+/** Smaller than the menu button on purpose: a status dot, not a second button. */
 @Composable
-private fun StatusBadge(icon: ImageVector, label: String, tint: Color, disc: Color) {
-    Box(Modifier.size(32.dp).background(disc, CircleShape), contentAlignment = Alignment.Center) {
-        Icon(icon, contentDescription = label, modifier = Modifier.size(18.dp), tint = tint)
+private fun StatusBadge(icon: ImageVector, label: String, color: Color) {
+    Box(
+        Modifier
+            .size(28.dp)
+            .background(color, CircleShape)
+            // A hairline edge, so the disc keeps its shape over bright or same-coloured artwork.
+            .border(1.dp, Color.Black.copy(alpha = 0.25f), CircleShape),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(icon, contentDescription = label, modifier = Modifier.size(16.dp), tint = Color.White)
     }
 }
 

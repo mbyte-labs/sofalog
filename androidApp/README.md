@@ -15,7 +15,7 @@ then the server's snapshot replacing local state). No background work, notificat
 
 **What exists today is the first slice of phase 1 (standalone):** Up Next, TMDB search, movie,
 show, season and episode pages, tracking a show, marking movies and episodes watched (now), the whole-show
-and whole-season bulk marks, removing a watch, and the data-sources screen with the TMDB notice.
+and whole-season bulk marks, removing a watch, and the About screen with the TMDB notice.
 An Up Next card opens the episode page on a tap and on a long-press
 opens a bottom sheet offering "Mark as watched" and "Check in" (also a placeholder: it writes
 nothing). "Mark as watched" there asks for an optional rating (1–10, stored in
@@ -23,13 +23,41 @@ nothing). "Mark as watched" there asks for an optional rating (1–10, stored in
 device's zone) or a picked date and time, never in the future.
 With nothing in progress, Up Next shows the app's mark (gently animated), a line that tells a
 never-used library ("Your sofa is ready") from a caught-up one ("All caught up" — the log holds a
-watch), and three cards: Search, Trending on TMDB and Settings. The last two open placeholder
-pages (`ui/placeholder/ComingSoonScreen.kt`); neither is in the menu yet.
+watch), and three cards: Search, Trending on TMDB (the Discover page) and Settings.
+
+**Settings** (`ui/settings/`, in the menu) mirrors the web app's as far as a device can. Like
+every page, each one carries the menu button in its top bar; going back is the system gesture:
+- **About** — the logo and version, the story, where your data lives and the community links; the one home of the TMDB notice.
+- **Account** — the **time zone** (follows the device until one is picked; it decides where the
+  day ends and how every instant is shown) and the **where-to-watch country** (default `RO`; each
+  tracked title refetches its listing once, on its next view). Both live in the `settings` table
+  and are read everywhere through `domain/UserZone.kt` (`UserZone`, `WatchRegion`).
+- **TMDB account** — link your own account through TMDB's approval page (the browser returns via
+  `sofalog://tmdb-link`; if it does not, coming back to the app finishes the link), answer once
+  per kind whether to Pull, Push or Skip, and choose which of ratings, watchlist and favorites are
+  kept in sync, one way. Changes queue in `user_tmdb_sync` and are sent **only while the app is
+  open**. The session id is not in the database: `TmdbSessionStore` keeps it encrypted in
+  no-backup storage, so it rides no backup — and the future backup file must skip
+  `user_tmdb_accounts` and `user_tmdb_sync` too.
+- **Backup & Restore** — two sections. *Restore backup*: import a Ticket Box version-5 export
+  picked with the system file picker: a summary, a confirm, live progress, a Stop action and a
+  report whose skipped entries open the title they belong to. The import runs in the app's own
+  scope, so it survives leaving the page but not the app being closed; running the same file
+  again converges. A sofalog dump is listed and disabled. *Create backup* is a "coming soon"
+  note: nothing is built.
+- **Delete data** — two actions, each behind a confirm and both refused while a restore or the
+  TMDB setup's import is running. *Movies and shows* empties the library in one transaction
+  (history, ratings, watchlist, favorites, dropped shows, copies, the stored titles and the
+  pending TMDB outbox) and keeps the settings and the TMDB link. *Everything* also unlinks the
+  TMDB account, clears every table and the image cache, and lands on Up Next as on a first
+  launch. Neither deletes anything on TMDB.
+- **Users** and **Log out** are listed and disabled: they need a linked server.
 The History page lists every watch, one card per watch (a rewatch is another card), in month
 sections of the device's zone, with a movies / episodes filter, newest- or oldest-first order and
 48 more per "Load more"; a card opens the movie page or the episode page. It shows the
 user's rating and, for movies, TMDB's score — an episode card has no score, because the device
-stores none per season. A long-press on a card offers removal, each confirmed first: that one
+stores none per season. The card is the search card without its watched tab (every card here is a watch): the
+watchlist and favorite tabs top-left (an episode wears its show's), the kind bottom-left. A long-press on a card offers removal, each confirmed first: that one
 entry; every entry of the movie or episode (offered when there is more than one); and for an
 episode, every watch of its season or of its whole show.
 The movie page is the web page's, section for section: a hero over the blurred poster, outbound
@@ -56,7 +84,7 @@ The show page is the movie page's twin and the web show page's, section for sect
 next episode), TMDB's score beside the user's rating and their episode average, copies with
 per-kind season coverage ("2 of 5 seasons" — a show is owned per season, so a show-wide add or
 remove fans out over every non-special season), streaming, "Your progress" (status, aired counts,
-**Drop show / Resume show**), the episode watch timeline with the main button and the two
+**Drop show / Resume show**, which a show that was never started does not have), the episode watch timeline with the main button and the two
 toggles, the aggregate cast, a season grid (progress, the user's average and TMDB's score on each
 poster; as many columns as the window holds), media and similar shows. "Mark As Watched" opens the
 bulk form: the remaining episodes or a full rewatch, watched now, at one moment, on each episode's
@@ -91,9 +119,35 @@ streaming listing — both read-only here: a copy tile explains that copies are 
 leads to the season page — the episode's own watch history with removal and "Mark As Watched" /
 "Log another watch" (the dated form, with a rating), the season's regular cast, and the episode's
 guest stars. Rating or marking an episode of an untracked show tracks the whole show first.
-Not yet: check-in, the
-watchlist, favorites and dropped list pages, the person page, upcoming, stats, discover and
-trending, settings, the backup file, and everything about linking to a server.
+The Lists page (`ui/lists/`, in the menu) shows one compact card per list — Watchlist, Favorites
+and Dropped, always all three — with its movie and show counts and a fan of up to five posters
+from its newest entries (Ticket Box's hub card, deliberately not the web's backdrop banner). Each card opens that list's page: a poster grid with a kind
+filter (not on Dropped, which holds shows alone), a sort (date added / title / release date) and
+its direction; a card shows the watched tick (a show: finished), the user's rating and TMDB's
+score, and opens the movie or show page. The lists are read whole from the device's database and
+ordered by `domain/ListOrder.kt`; Dropped is a view over the dropped show states, not a table.
+The Search page shows its results in that same poster grid, under a type filter (All / Movies /
+Shows — TMDB does the filtering, so one kind fills its own page). A poster carries the kind badge
+bottom-left and TMDB's score bottom-right, plus marks read from the device's database: the
+user's rating top-right and, top-left, a row of small tabs for watched (a movie: any watch; a
+show: at least one episode — started, unlike the Lists pages' finished — and never beside
+dropped), dropped (a show), on the watchlist and in the favorites.
+
+The **Discover** page (`ui/discover/`, in the menu) is SPEC D-034's subset on the device: two
+lists sharing one All / Movies / Shows filter (in the Filters sheet, with the rest), in the Search grid with the Search card and its marks.
+The Trending / Popular tabs slide away as the grid scrolls down and return on any scroll back up.
+**Trending** is TMDB's weekly list (both kinds = one `/trending/all/week` call, people dropped).
+**Popular** is `/discover/movie` and `/discover/tv` sorted by popularity (both kinds = each kind's
+page merged by popularity, uncapped), with a Filters sheet: a minimum TMDB score in half points (one slider, 5.5 by default),
+the original language, and genres (all selected must match; the options follow the kind). Both
+are fetched live on every view and never stored; "Load more" appends TMDB's next page. The genre
+and language lists are read once per process, and their outage leaves the grid and the score
+filter working. The rules are pure functions in `domain/Discover.kt`, covered by `DiscoverTest`
+— Kotlin tests only, since the server side did not change. Not ported from the web page: the
+Today window, the other sorts, the year range, minimum votes and the streaming-service filter.
+
+Not yet: check-in, the person page, upcoming, stats, the app's own backup file, and everything
+about linking to a server.
 
 ## TMDB key
 
@@ -150,8 +204,8 @@ androidApp/
   a display rule with only Kotlin tests.
 - The database is unreleased but devices already hold data, so a schema change bumps the Room
   version with a real `Migration` — never a destructive fallback.
-- The UI reads only the local database, through `VideoRepository`. TMDB is called for search, for
-  previews of untracked titles and to materialise a title when it is first tracked.
+- The UI reads only the local database, through `VideoRepository`. TMDB is called for search, for the
+  Discover lists, for previews of untracked titles and to materialise a title when it is first tracked.
 - `user_show_states` has one system writer: `VideoRepository.recompute`, in the same transaction
   as the watch-log change it follows. The only other write is the user's own drop / un-drop
   (`setShowDropped`): an UPDATE that never creates a row, and an un-drop that recomputes at once.

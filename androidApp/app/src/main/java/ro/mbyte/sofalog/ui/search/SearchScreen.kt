@@ -2,7 +2,6 @@ package ro.mbyte.sofalog.ui.search
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,8 +14,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -40,7 +40,6 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.ViewModel
@@ -49,24 +48,34 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import ro.mbyte.sofalog.R
 import ro.mbyte.sofalog.data.MediaKind
 import ro.mbyte.sofalog.data.SearchHit
 import ro.mbyte.sofalog.data.VideoRepository
+import ro.mbyte.sofalog.domain.LibraryMarks
 import ro.mbyte.sofalog.ui.common.CenteredLoading
 import ro.mbyte.sofalog.ui.common.CenteredMessage
-import ro.mbyte.sofalog.ui.common.Poster
+import ro.mbyte.sofalog.ui.common.SegmentedChoice
+import ro.mbyte.sofalog.ui.common.TitleCard
 import ro.mbyte.sofalog.ui.common.attempt
-import ro.mbyte.sofalog.ui.common.formatScore
 import ro.mbyte.sofalog.ui.common.repository
 import ro.mbyte.sofalog.ui.common.userMessage
 
 data class SearchState(
     val query: String = "",
+    /** The type filter: null searches movies and shows together. */
+    val kind: MediaKind? = null,
     val loading: Boolean = false,
     val results: List<SearchHit>? = null,
     val error: String? = null,
@@ -76,17 +85,38 @@ class SearchViewModel(private val repo: VideoRepository) : ViewModel() {
     val state = MutableStateFlow(SearchState())
     private var job: Job? = null
 
+    /**
+     * The library's marks for the results on screen — read from the device, never from TMDB, and
+     * live: a result rated or watched from its page wears the mark on the way back.
+     */
+    @OptIn(ExperimentalCoroutinesApi::class)
+    val marks: StateFlow<LibraryMarks> = state.map { it.results.orEmpty() }.distinctUntilChanged()
+        .flatMapLatest { repo.observeLibraryMarks(it) }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), LibraryMarks.EMPTY)
+
     fun onQuery(query: String) {
         state.value = state.value.copy(query = query)
+        run(debounce = 400) // one request per pause in typing, not per keystroke
+    }
+
+    /** A filter change is one deliberate tap: it searches again at once. */
+    fun setKind(kind: MediaKind?) {
+        if (kind == state.value.kind) return
+        state.value = state.value.copy(kind = kind)
+        run(debounce = 0)
+    }
+
+    private fun run(debounce: Long) {
         job?.cancel()
+        val (query, kind) = state.value
         if (query.isBlank()) {
-            state.value = SearchState(query = query)
+            state.value = SearchState(query = query, kind = kind)
             return
         }
         job = viewModelScope.launch {
-            delay(400) // debounce: one request per pause in typing, not per keystroke
+            delay(debounce)
             state.value = state.value.copy(loading = true, error = null)
-            attempt { repo.search(query.trim()) }
+            attempt { repo.search(query.trim(), kind) }
                 .onSuccess { state.value = state.value.copy(loading = false, results = it) }
                 .onFailure { state.value = state.value.copy(loading = false, results = null, error = it.userMessage()) }
         }
@@ -99,6 +129,7 @@ fun SearchScreen(onOpen: (SearchHit) -> Unit, onMenu: () -> Unit) {
     val repo = repository()
     val vm: SearchViewModel = viewModel(factory = viewModelFactory { initializer { SearchViewModel(repo) } })
     val state by vm.state.collectAsStateWithLifecycle()
+    val marks by vm.marks.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -109,47 +140,40 @@ fun SearchScreen(onOpen: (SearchHit) -> Unit, onMenu: () -> Unit) {
         },
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = state.query,
-                onValueChange = vm::onQuery,
-                singleLine = true,
-                placeholder = { Text("Movies and shows") },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
+            Column(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                OutlinedTextField(
+                    value = state.query,
+                    onValueChange = vm::onQuery,
+                    singleLine = true,
+                    placeholder = { Text("Movies and shows") },
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                SegmentedChoice(
+                    listOf(null to "All", MediaKind.MOVIE to "Movies", MediaKind.SHOW to "Shows"),
+                    state.kind,
+                    vm::setKind,
+                )
+            }
             val results = state.results
             when {
                 state.loading -> CenteredLoading()
                 state.error != null -> CenteredMessage(state.error!!)
                 results == null -> SearchIntro()
                 results.isEmpty() -> CenteredMessage("Nothing found.")
-                else -> LazyColumn(
+                // The Lists pages' grid, so a poster is the same size everywhere.
+                else -> LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 150.dp),
+                    modifier = Modifier.fillMaxSize(),
                     contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
+                    // Keyed by the pair: a TMDB id is unique only within its kind.
                     items(results, key = { "${it.kind}-${it.tmdbId}" }) { hit ->
-                        Row(
-                            Modifier.fillMaxWidth().clickable { onOpen(hit) },
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Poster(hit.posterPath, hit.title, Modifier.width(64.dp))
-                            Column {
-                                Text(
-                                    hit.title,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    maxLines = 2,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                Text(
-                                    listOfNotNull(
-                                        if (hit.kind == MediaKind.MOVIE) "Movie" else "Show",
-                                        hit.year,
-                                        formatScore(hit.voteAverage?.takeIf { it > 0 }),
-                                    ).joinToString(" · "),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
+                        TitleCard(hit, marks.of(hit.kind == MediaKind.MOVIE, hit.tmdbId)) { onOpen(hit) }
                     }
                 }
             }

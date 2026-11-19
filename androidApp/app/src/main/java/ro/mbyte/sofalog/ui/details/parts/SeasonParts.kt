@@ -43,9 +43,11 @@ import androidx.compose.ui.unit.sp
 import coil3.compose.AsyncImage
 import ro.mbyte.sofalog.data.tmdb.TmdbClient
 import ro.mbyte.sofalog.domain.EpisodeMarker
+import ro.mbyte.sofalog.ui.common.MarkTab
 import ro.mbyte.sofalog.ui.common.formatDay
 import ro.mbyte.sofalog.ui.theme.FinaleBadge
 import ro.mbyte.sofalog.ui.theme.SeasonPremiereBadge
+import ro.mbyte.sofalog.ui.theme.WatchedItemColor
 import java.util.Locale
 
 /*
@@ -115,10 +117,10 @@ fun DroppedNotice(showTitle: String, page: Dp, onOpenShow: () -> Unit) {
 private val BadgeShape = RoundedCornerShape(6.dp)
 
 /**
- * One episode of a season's grid: its still wearing what is known about it — ✓ once watched and
- * the user's rating along the top, a premiere or finale marker and TMDB's score along the foot —
- * then its number and title, and when it aired and for how long. A tap opens it; a long-press is
- * the page's to use.
+ * One episode of a season's grid: its still wearing what is known about it — a premiere or finale
+ * tab in the top-left corner with the search card's watched tab under it, the user's rating
+ * top-right and TMDB's score along the foot — then its number and title, and
+ * when it aired and for how long. A tap opens it; a long-press is the page's to use.
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -163,11 +165,26 @@ fun EpisodeCard(
             } else {
                 AsyncImage(still, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop)
             }
-            if (watched) {
-                Box(
-                    Modifier.align(Alignment.TopStart).padding(6.dp).size(22.dp).clip(BadgeShape).background(scheme.primary),
-                    contentAlignment = Alignment.Center,
-                ) { Icon(DetailIcons.Check, "Watched", Modifier.size(14.dp), tint = scheme.onPrimary) }
+            // Tabs stacked flush into the top-left corner, as on Up Next: the marker first, the
+            // search card's watched tab under it. Only the stack's last tab rounds its corner.
+            Column(Modifier.align(Alignment.TopStart)) {
+                val tabShape = RoundedCornerShape(bottomEnd = 6.dp)
+                marker?.let {
+                    Text(
+                        it.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = Color.White,
+                        maxLines = 1,
+                        modifier = Modifier
+                            .then(if (watched) Modifier else Modifier.clip(tabShape))
+                            .background(if (it == EpisodeMarker.SEASON_PREMIERE) SeasonPremiereBadge else FinaleBadge)
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
+                if (watched) {
+                    Box(Modifier.clip(tabShape)) { MarkTab(DetailIcons.CheckBold, "Watched", WatchedItemColor) }
+                }
             }
             userRating?.let {
                 Text(
@@ -182,20 +199,6 @@ fun EpisodeCard(
                         .background(HeartRed)
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                         .semantics { contentDescription = "Your rating $it" },
-                )
-            }
-            marker?.let {
-                Text(
-                    it.label,
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.White,
-                    maxLines = 1,
-                    modifier = Modifier
-                        .align(Alignment.BottomStart)
-                        .clip(RoundedCornerShape(topEnd = 8.dp))
-                        .background(if (it == EpisodeMarker.SEASON_PREMIERE) SeasonPremiereBadge else FinaleBadge)
-                        .padding(horizontal = 7.dp, vertical = 3.dp),
                 )
             }
             score?.let {

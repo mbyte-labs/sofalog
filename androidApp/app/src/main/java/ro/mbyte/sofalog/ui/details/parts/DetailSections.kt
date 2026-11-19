@@ -1,6 +1,7 @@
 package ro.mbyte.sofalog.ui.details.parts
 
 import androidx.compose.foundation.BorderStroke
+import ro.mbyte.sofalog.domain.UserZone
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -165,7 +166,6 @@ fun DetailHero(
     backdropPath: String?,
     facts: List<String>,
     byline: Byline?,
-    score: Double?,
     genres: String?,
     tagline: String?,
     overview: String?,
@@ -199,14 +199,14 @@ fun DetailHero(
                 ) {
                     HeroTitle(title, facts, byline, wide, overline, onOverline, overline2, onOverline2)
                 }
-                HeroChips(score, genres)
+                HeroChips(genres)
                 HeroDescription(tagline, overview, noOverview, clamp = !wide, if (wide) Modifier.widthIn(max = 640.dp) else Modifier)
             } else if (wide) {
                 Row(horizontalArrangement = Arrangement.spacedBy(32.dp)) {
                     HeroPoster(title, posterPath, hue, Modifier.width(220.dp))
                     Column(Modifier.weight(1f).padding(top = overlap + 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         HeroTitle(title, facts, byline, wide = true, overline, onOverline)
-                        HeroChips(score, genres)
+                        HeroChips(genres)
                         HeroDescription(tagline, overview, noOverview, clamp = false, Modifier.padding(top = 6.dp).widthIn(max = 640.dp))
                     }
                 }
@@ -217,7 +217,7 @@ fun DetailHero(
                         HeroTitle(title, facts, byline, wide = false, overline, onOverline)
                     }
                 }
-                HeroChips(score, genres)
+                HeroChips(genres)
                 byline?.let { BylineText(it) }
                 HeroDescription(tagline, overview, noOverview, clamp = true, Modifier)
             }
@@ -367,20 +367,13 @@ private fun BylineText(byline: Byline) {
     )
 }
 
-/** TMDB's score, then a chip per genre. Nothing at all when the title has neither. */
+/** A chip per genre. Nothing at all when the title has none. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun HeroChips(voteAverage: Double?, genreList: String?) {
-    val score = voteAverage?.takeIf { it > 0 }?.let { "%.1f".format(Locale.ENGLISH, it) }
+private fun HeroChips(genreList: String?) {
     val genres = genreList?.split(", ")?.filter { it.isNotBlank() }.orEmpty()
-    if (score == null && genres.isEmpty()) return
+    if (genres.isEmpty()) return
     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        score?.let {
-            HeroChip(Modifier.semantics(mergeDescendants = true) { contentDescription = "TMDB rating $it" }) {
-                Icon(DetailIcons.Star, null, Modifier.size(14.dp), tint = ImdbYellow)
-                Text(it, style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-            }
-        }
         genres.forEach { genre ->
             HeroChip { Text(genre, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant) }
         }
@@ -605,7 +598,7 @@ internal fun compactUsd(amount: Long): String {
 }
 
 internal fun fetchedDay(fetchedAt: String): String? = runCatching {
-    formatDay(LocalDate.ofInstant(Instant.parse(fetchedAt), ZoneId.systemDefault()).toString())
+    formatDay(LocalDate.ofInstant(Instant.parse(fetchedAt), UserZone.current).toString())
 }.getOrNull()
 
 // ------------------------------------------------------------------------------- ratings
@@ -881,7 +874,7 @@ fun HistorySection(
     /** Said under the buttons — what a first action on an untracked title sets off. */
     hint: String? = null,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = remember { UserZone.current }
     val today = LocalDate.now(zone)
     // Entries that name what was watched are plays of many things, not viewings of one.
     val plays = entries.any { it.title != null }

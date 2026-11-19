@@ -811,7 +811,24 @@ snapshot** — it never merges, and nothing on the wire is a local id. Pairing i
 as a QR code on a SPA Devices page. The Up Next / status / aired / upcoming / stats rules exist in
 Go **and** Kotlin and are held together by shared JSON fixtures both test suites run: change a
 rule on one side, change the fixture and the other side. **No background work, notifications or
-widgets; no games; no Jellyfin, matching, TMDB-account or restore screens.** Delivery is three
+widgets; no games; no Jellyfin or matching screens.** **Settings is built** (`ui/settings/`, drawer
+entry "Settings"): About (the app's Data Sources: logo and version, the story, where the data lives, community links, and the one home of the TMDB notice), the time zone and the where-to-watch country (a `settings` table;
+`domain/UserZone.kt`'s `UserZone` and `WatchRegion` are the ONE place the rest of the app reads
+them — never `ZoneId.systemDefault()` or the `WATCH_REGION` default directly), with Users and Log
+out listed and disabled until linking exists. **The Discover page is built** (`ui/discover/`,
+drawer entry "Discover"): D-034's subset — the weekly Trending list and the Popular list
+(`/discover/*` by popularity, filtered by a minimum TMDB score (default 5.5), original language and genres), one
+All / Movies / Shows filter over both, live on every view and never stored; the rules are
+`domain/Discover.kt`, and the card is `ui/common/TitleCard.kt`, shared with Search. **The Lists hub is built** (`ui/lists/`, drawer
+entry "Lists"): one poster-fan card per list — Watchlist, Favorites, Dropped — and one page per list,
+each list read whole from Room and ordered and filtered in Kotlin by `domain/ListOrder.kt`
+(`orderList` is the server's list ordering; `summarize` its hub counts, plus the newest five POSTERS for the card's fan — deliberately not the web hub's backdrop pick). **The TMDB account link and the Ticket Box restore
+run on the device** (D-040, reversed on request): `data/tmdbaccount/` ports D-029 / D-036 — a
+TMDB-addressed outbox filled by `VideoRepository.mirror` inside each write's transaction and sent
+only while the app is on screen, the setup's pull through the no-enqueue `pull*` methods, and the
+session id kept OUT of Room in `TmdbSessionStore` (encrypted, no-backup storage; never logged) —
+and `data/RestoreRepository.kt` ports D-023 over the pure rules in `domain/TicketBoxDump.kt` and
+`domain/RestorePlan.kt`. Their shared cases are `tmdb-sync.json` and `ticket-box-restore.json`. Delivery is three
 phases — standalone app, then the server side (tokens, `episodes.tmdb_id`, snapshot, command
 batch), then linking. **Phase 1's first slice is built** (Room database, TMDB client, Up Next,
 search, movie/show/season/episode pages, marking and bulk marking, watch removal; the movie and show

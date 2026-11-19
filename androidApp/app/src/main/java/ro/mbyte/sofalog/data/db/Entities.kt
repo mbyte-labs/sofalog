@@ -172,3 +172,69 @@ const val TARGET_SHOW = "show"
 
 /** A season is what an owned copy of a show hangs on (D-021); it is never rated or watched. */
 const val TARGET_SEASON = "season"
+
+/**
+ * The app's own settings: one row per setting that was changed, absent = the default. Device
+ * state, not library state — the user's time zone (D-038) and the where-to-watch country (D-022).
+ */
+@Entity(tableName = "settings")
+data class SettingEntity(
+    @PrimaryKey val name: String,
+    val value: String,
+)
+
+const val SETTING_TIMEZONE = "timezone"
+const val SETTING_WATCH_REGION = "watch_region"
+
+/**
+ * The linked TMDB account (D-029, D-036): at most one row, id 1. The link is the consent, the
+ * setup the opt-in — linking alone sends nothing. The session id is deliberately NOT a column: it
+ * is a secret and lives outside the database, where no backup reaches it (TmdbSessionStore).
+ */
+@Entity(tableName = "user_tmdb_accounts")
+data class TmdbAccountEntity(
+    @PrimaryKey val id: Long = 1,
+    @ColumnInfo(name = "tmdb_account_id") val tmdbAccountId: Long,
+    @ColumnInfo(name = "tmdb_username") val tmdbUsername: String,
+    @ColumnInfo(name = "linked_at") val linkedAt: String,
+    @ColumnInfo(name = "broken_at") val brokenAt: String? = null,
+    @ColumnInfo(name = "setup_done") val setupDone: Boolean = false,
+    @ColumnInfo(name = "sync_ratings") val syncRatings: Boolean = false,
+    @ColumnInfo(name = "sync_watchlist") val syncWatchlist: Boolean = false,
+    @ColumnInfo(name = "sync_favorites") val syncFavorites: Boolean = false,
+    /** Set while the setup's import runs; still set at launch means the app died mid-import. */
+    @ColumnInfo(name = "pull_started_at") val pullStartedAt: String? = null,
+)
+
+/**
+ * The outbox of changes waiting to be sent to TMDB: one row per (kind, target) holding the current
+ * intent. Addressed by TMDB id — the movie's, or the show's plus a position for an episode — so a
+ * row needs no local lookup to be sent. `updated_at` is the replace marker: a row rewritten while
+ * it was in flight is not settled by the send that raced it.
+ */
+@Entity(
+    tableName = "user_tmdb_sync",
+    indices = [Index(value = ["kind", "target_type", "tmdb_id", "season_number", "episode_number"], unique = true)],
+)
+data class TmdbSyncEntity(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val kind: String,
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    @ColumnInfo(name = "season_number") val seasonNumber: Int = 0,
+    @ColumnInfo(name = "episode_number") val episodeNumber: Int = 0,
+    val op: String,
+    val rating: Int? = null,
+    val attempts: Int = 0,
+    @ColumnInfo(name = "next_retry_at") val nextRetryAt: String? = null,
+    /** A failure's reason name only — never a message, which could carry a URL. */
+    @ColumnInfo(name = "last_error") val lastError: String? = null,
+    @ColumnInfo(name = "created_at") val createdAt: String,
+    @ColumnInfo(name = "updated_at") val updatedAt: String,
+)
+
+const val SYNC_RATING = "rating"
+const val SYNC_WATCHLIST = "watchlist"
+const val SYNC_FAVORITE = "favorite"
+const val SYNC_SET = "set"
+const val SYNC_DELETE = "delete"

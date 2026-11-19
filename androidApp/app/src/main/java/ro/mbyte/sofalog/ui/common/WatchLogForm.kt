@@ -1,6 +1,7 @@
 package ro.mbyte.sofalog.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
+import ro.mbyte.sofalog.domain.UserZone
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,7 +36,6 @@ import ro.mbyte.sofalog.domain.wallTimeInstant
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZoneId
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
@@ -69,7 +69,7 @@ fun WatchLogForm(
     initialRating: Int? = null,
     enabled: Boolean = true,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = remember { UserZone.current }
     val opened = remember { Instant.now() }
     val today = remember { LocalDate.ofInstant(opened, zone) }
     val release = remember(airDate) { releaseInstant(airDate, zone)?.takeIf { !it.isAfter(opened) } }

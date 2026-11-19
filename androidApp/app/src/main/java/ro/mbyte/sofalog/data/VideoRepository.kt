@@ -1,22 +1,37 @@
 package ro.mbyte.sofalog.data
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import ro.mbyte.sofalog.data.db.LibraryMarkRow
 import ro.mbyte.sofalog.data.db.AppDatabase
 import ro.mbyte.sofalog.data.db.CopyEntity
 import ro.mbyte.sofalog.data.db.FavoriteEntity
 import ro.mbyte.sofalog.data.db.WatchlistEntity
 import ro.mbyte.sofalog.data.db.HistoryRow
+import ro.mbyte.sofalog.data.db.ListRow
 import ro.mbyte.sofalog.data.db.EpisodeEntity
 import ro.mbyte.sofalog.data.db.MovieEntity
 import ro.mbyte.sofalog.data.db.RatingEntity
+import ro.mbyte.sofalog.data.db.SETTING_TIMEZONE
+import ro.mbyte.sofalog.data.db.SETTING_WATCH_REGION
+import ro.mbyte.sofalog.data.db.SYNC_DELETE
+import ro.mbyte.sofalog.data.db.SYNC_FAVORITE
+import ro.mbyte.sofalog.data.db.SYNC_RATING
+import ro.mbyte.sofalog.data.db.SYNC_SET
+import ro.mbyte.sofalog.data.db.SYNC_WATCHLIST
 import ro.mbyte.sofalog.data.db.SeasonEntity
+import ro.mbyte.sofalog.data.db.SettingEntity
+import ro.mbyte.sofalog.data.db.enqueue
 import ro.mbyte.sofalog.data.db.ShowEntity
 import ro.mbyte.sofalog.data.db.ShowStateEntity
 import ro.mbyte.sofalog.data.db.TARGET_EPISODE
@@ -27,16 +42,45 @@ import ro.mbyte.sofalog.data.db.WatchEntity
 import ro.mbyte.sofalog.data.tmdb.Fetched
 import ro.mbyte.sofalog.data.tmdb.TmdbClient
 import ro.mbyte.sofalog.data.tmdb.TmdbMovie
+import ro.mbyte.sofalog.data.tmdb.TmdbSearchResult
 import ro.mbyte.sofalog.data.tmdb.TmdbSeason
 import ro.mbyte.sofalog.data.tmdb.TmdbShow
 import ro.mbyte.sofalog.domain.BulkWatchMode
+import ro.mbyte.sofalog.domain.DiscoverFilters
+import ro.mbyte.sofalog.domain.GenreOption
+import ro.mbyte.sofalog.domain.LanguageOption
+import ro.mbyte.sofalog.domain.RankedRow
+import ro.mbyte.sofalog.domain.discoverParams
+import ro.mbyte.sofalog.domain.languageOptions
+import ro.mbyte.sofalog.domain.mergeByPopularity
+import ro.mbyte.sofalog.domain.trendingRowKind
 import ro.mbyte.sofalog.domain.Clock
 import ro.mbyte.sofalog.domain.ClockReading
+import ro.mbyte.sofalog.domain.EpisodeKey
 import ro.mbyte.sofalog.domain.EpisodeRef
+import ro.mbyte.sofalog.domain.EpisodeResolver
+import ro.mbyte.sofalog.domain.ListEntry
+import ro.mbyte.sofalog.domain.ListItemKind
+import ro.mbyte.sofalog.domain.ListSummary
+import ro.mbyte.sofalog.domain.summarize
+import ro.mbyte.sofalog.domain.MovieGroup
+import ro.mbyte.sofalog.domain.RESTORE_HISTORY
+import ro.mbyte.sofalog.domain.RESTORE_RATING
+import ro.mbyte.sofalog.domain.RestoreCounts
+import ro.mbyte.sofalog.domain.RestoreSkip
+import ro.mbyte.sofalog.domain.SKIP_EPISODE_NOT_FOUND
+import ro.mbyte.sofalog.domain.ShowGroup
+import ro.mbyte.sofalog.domain.WATCH_REGION
+import ro.mbyte.sofalog.domain.WatchRegion
+import ro.mbyte.sofalog.domain.episodeSkipHint
+import ro.mbyte.sofalog.domain.resolveRegion
+import ro.mbyte.sofalog.domain.resolveZone
 import ro.mbyte.sofalog.domain.ShowProgress
 import ro.mbyte.sofalog.domain.ShowStatus
+import ro.mbyte.sofalog.domain.UserZone
 import ro.mbyte.sofalog.domain.isEligible
 import ro.mbyte.sofalog.domain.movieSnapshotIncomplete
+import ro.mbyte.sofalog.domain.parseEpisodeScores
 import ro.mbyte.sofalog.domain.bulkWatchInstant
 import ro.mbyte.sofalog.domain.recomputeShowStatus
 import ro.mbyte.sofalog.domain.seasonSnapshotIncomplete
@@ -44,11 +88,12 @@ import ro.mbyte.sofalog.domain.showSnapshotIncomplete
 import ro.mbyte.sofalog.domain.showProgress
 import ro.mbyte.sofalog.domain.storedInstant
 import ro.mbyte.sofalog.domain.EpisodeMarker
+import ro.mbyte.sofalog.domain.LibraryMark
+import ro.mbyte.sofalog.domain.LibraryMarks
 import ro.mbyte.sofalog.domain.episodeMarker
 import ro.mbyte.sofalog.domain.upNextEpisode
 import java.time.Duration
 import java.time.Instant
-import java.time.ZoneId
 
 enum class MediaKind { MOVIE, SHOW }
 
@@ -82,6 +127,34 @@ data class ShowUserState(
     val seasonCopies: Map<Int, Set<CopyKind>> = emptyMap(),
     /** The user's episode ratings by local episode id. */
     val episodeRatings: Map<Long, Int> = emptyMap(),
+)
+
+/** The app's own settings as stored. [timeZone] null follows the device. */
+data class AppSettings(val timeZone: String? = null, val watchRegion: String = WATCH_REGION)
+
+/** What one pulled entry did: whether it fetched a new title, and whether it wrote anything. */
+data class PullWrite(val materialised: Boolean, val created: Boolean, val episodeMissing: Boolean = false)
+
+/** A restore group's title, held locally by the time it is returned. */
+data class RestoreResolved(val localId: Long, val title: String, val materialised: Boolean)
+
+/** The writes a restore needs — the seam its runner is tested through. */
+interface RestoreWrites {
+    suspend fun resolveRestoreMovie(tmdbId: Long, mayFetch: Boolean): RestoreResolved?
+    suspend fun resolveRestoreShow(tmdbId: Long, mayFetch: Boolean): RestoreResolved?
+    suspend fun writeRestoreMovie(target: RestoreResolved, group: MovieGroup): RestoreCounts
+    suspend fun writeRestoreShow(target: RestoreResolved, group: ShowGroup): Pair<RestoreCounts, List<RestoreSkip>>
+    suspend fun restoreTitle(movie: Boolean, tmdbId: Long): String?
+}
+
+/** One page of a trending or popular list, in TMDB's own paging. */
+data class DiscoverPage(val hits: List<SearchHit>, val page: Int, val totalPages: Int)
+
+/** What the Discover filters offer: TMDB's genres per kind and its languages. */
+data class DiscoverOptions(
+    val movieGenres: List<GenreOption>,
+    val showGenres: List<GenreOption>,
+    val languages: List<LanguageOption>,
 )
 
 data class SearchHit(
@@ -120,6 +193,10 @@ data class UpNextItem(
     /** Premiere / mid-season finale / season finale, or null for a plain episode. */
     val marker: EpisodeMarker?,
     val progress: ShowProgress,
+    /** TMDB's community score of the episode; null when it has no votes or its season no stored body. */
+    val score: Double? = null,
+    /** This user's own rating of the episode, 1..10 — it can be rated before it is watched. */
+    val userRating: Int? = null,
 )
 
 enum class HistoryType(val target: String?) { ALL(null), MOVIES(TARGET_MOVIE), EPISODES(TARGET_EPISODE) }
@@ -135,8 +212,11 @@ sealed interface HistoryItem {
     val posterPath: String?
     /** This user's rating of the target, the same on every rewatch of it. */
     val userRating: Int?
-    /** TMDB's community score. Null for an episode: the device stores no season score. */
+    /** TMDB's community score of the movie or of the episode itself; null when it has no votes. */
     val score: Double?
+    /** The movie's own watchlist and favorite marks; an episode borrows its show's. */
+    val watchlisted: Boolean
+    val favorited: Boolean
 
     data class Movie(
         override val id: Long,
@@ -146,6 +226,8 @@ sealed interface HistoryItem {
         override val posterPath: String?,
         override val userRating: Int?,
         override val score: Double?,
+        override val watchlisted: Boolean,
+        override val favorited: Boolean,
         val tmdbId: Long,
         val title: String,
     ) : HistoryItem
@@ -157,6 +239,9 @@ sealed interface HistoryItem {
         override val watchedAt: String,
         override val posterPath: String?,
         override val userRating: Int?,
+        override val score: Double?,
+        override val watchlisted: Boolean,
+        override val favorited: Boolean,
         /** The show's local id — what the season- and show-wide removals address. */
         val showId: Long,
         val showTmdbId: Long,
@@ -164,12 +249,13 @@ sealed interface HistoryItem {
         val season: Int,
         val number: Int,
         val title: String?,
-    ) : HistoryItem {
-        override val score: Double? get() = null
-    }
+    ) : HistoryItem
 }
 
 data class HistoryPage(val items: List<HistoryItem>, val hasMore: Boolean)
+
+/** The lists the Lists page offers, in its order. */
+enum class ListKey { WATCHLIST, FAVORITES, DROPPED }
 
 /**
  * The single home of the app's reads and writes (SPEC D-040). The UI reads only the local
@@ -184,24 +270,180 @@ class VideoRepository(
     private val db: AppDatabase,
     private val tmdb: TmdbClient,
     private val clock: Clock,
-) {
+) : RestoreWrites {
     private val dao = db.videoDao()
+    private val settings = db.settingsDao()
+    private val sync = db.tmdbSyncDao()
+
+    /**
+     * Called after a write that may have queued something for TMDB has committed — never inside
+     * its transaction. The TMDB account service hangs its worker's kick here.
+     */
+    var onSyncWrite: () -> Unit = {}
 
     val hasTmdbKey: Boolean get() = tmdb.hasKey
 
-    // ------------------------------------------------------------------ search
+    // ------------------------------------------------------------------ settings
 
-    suspend fun search(query: String): List<SearchHit> = tmdb.search(query).map {
-        val movie = it.mediaType == "movie"
-        SearchHit(
-            kind = if (movie) MediaKind.MOVIE else MediaKind.SHOW,
-            tmdbId = it.id,
-            title = (if (movie) it.title else it.name).orEmpty(),
-            year = (if (movie) it.releaseDate else it.firstAirDate).clean()?.take(4),
-            posterPath = it.posterPath,
-            voteAverage = it.voteAverage,
+    fun observeSettings(): Flow<AppSettings> = settings.observeAll().map { it.toSettings() }
+
+    /**
+     * Reads the stored settings into [UserZone] and [WatchRegion], the two places the rest of the
+     * app reads them from. Run once at startup, before anything is shown.
+     */
+    suspend fun loadSettings() = applySettings(settings.all().toSettings())
+
+    // ------------------------------------------------------------------ delete data
+
+    /**
+     * Empties the video library — history, ratings, watchlist, favorites, dropped shows, copies
+     * and the stored titles. The settings and the TMDB link stay; what was still waiting to be
+     * sent to TMDB is dropped with it, and nothing on TMDB is touched.
+     */
+    suspend fun deleteLibrary() = db.withTransaction {
+        sync.deleteAllSync()
+        dao.deleteLibrary()
+    }
+
+    /**
+     * Back to a first launch: every table, then the zone and country the app holds in memory.
+     * The TMDB link's secret lives outside the database; the caller unlinks first.
+     */
+    suspend fun deleteEverything() {
+        withContext(Dispatchers.IO) { db.clearAllTables() }
+        loadSettings()
+    }
+
+    /** [name] null follows the device's zone again. An unknown zone is refused. */
+    suspend fun setTimeZone(name: String?) {
+        if (name == null) {
+            settings.clear(SETTING_TIMEZONE)
+        } else {
+            requireNotNull(resolveZone(name)) { "unknown time zone" }
+            settings.set(SettingEntity(SETTING_TIMEZONE, name))
+        }
+        loadSettings()
+    }
+
+    /** The where-to-watch country. Each tracked title refetches once, on its next view. */
+    suspend fun setWatchRegion(code: String) {
+        val region = code.trim().uppercase()
+        require(region.length == 2 && region.all(Char::isLetter)) { "a country is two letters" }
+        settings.set(SettingEntity(SETTING_WATCH_REGION, region))
+        loadSettings()
+    }
+
+    private fun applySettings(value: AppSettings) {
+        UserZone.set(value.timeZone)
+        WatchRegion.current = value.watchRegion
+    }
+
+    private fun List<SettingEntity>.toSettings(): AppSettings {
+        val byName = associate { it.name to it.value }
+        return AppSettings(
+            timeZone = byName[SETTING_TIMEZONE]?.takeIf { resolveZone(it) != null },
+            watchRegion = resolveRegion(byName[SETTING_WATCH_REGION]),
         )
     }
+
+    /** Queues one change for the linked TMDB account. Must run inside the local write's transaction. */
+    private suspend fun mirror(kind: String, type: String, tmdbId: Long, op: String, rating: Int?, now: String, season: Int = 0, episode: Int = 0) =
+        sync.enqueue(kind, type, tmdbId, season, episode, op, rating, now)
+
+    // ------------------------------------------------------------------ search
+
+    /** [kind] null searches movies and shows together; a kind asks TMDB for that kind alone. */
+    suspend fun search(query: String, kind: MediaKind? = null): List<SearchHit> = when (kind) {
+        null -> tmdb.search(query)
+        MediaKind.MOVIE -> tmdb.searchMovies(query)
+        MediaKind.SHOW -> tmdb.searchShows(query)
+    }.map { it.toHit(it.mediaType == "movie") }
+
+    private fun TmdbSearchResult.toHit(movie: Boolean) = SearchHit(
+        kind = if (movie) MediaKind.MOVIE else MediaKind.SHOW,
+        tmdbId = id,
+        title = (if (movie) title else name).orEmpty(),
+        year = (if (movie) releaseDate else firstAirDate).clean()?.take(4),
+        posterPath = posterPath,
+        voteAverage = voteAverage,
+    )
+
+    // ------------------------------------------------------------------ discover (D-034)
+    // Live on every view and never stored: a list has no local data to be over.
+
+    /**
+     * One page of this week's trending list. [kind] null is TMDB's own cross-type ranking in one
+     * call, people dropped — so a page can come up short of twenty.
+     */
+    suspend fun trending(kind: MediaKind?, page: Int): DiscoverPage {
+        val media = kind.tmdbMedia() ?: "all"
+        val fetched = tmdb.trending(media, page)
+        val hits = fetched.results.mapNotNull { row ->
+            trendingRowKind(media, row.mediaType, row.id)?.let { row.toHit(it == "movie") }
+        }
+        return DiscoverPage(hits, page, fetched.totalPages)
+    }
+
+    /**
+     * One page of TMDB's popular list under [filters]. [kind] null fetches both kinds' page and
+     * merges them by popularity, uncapped; the page count is the longer list's.
+     */
+    suspend fun popular(kind: MediaKind?, filters: DiscoverFilters, page: Int): DiscoverPage {
+        if (kind != null) {
+            val movie = kind == MediaKind.MOVIE
+            val fetched = tmdb.discover(kind.tmdbMedia()!!, discoverParams(!movie, filters, page))
+            return DiscoverPage(fetched.results.filter { it.id != 0L }.map { it.toHit(movie) }, page, fetched.totalPages)
+        }
+        return coroutineScope {
+            val movies = async { tmdb.discover("movie", discoverParams(false, filters, page)) }
+            val shows = async { tmdb.discover("tv", discoverParams(true, filters, page)) }
+            val rows = listOf(movies.await() to true, shows.await() to false).flatMap { (fetched, movie) ->
+                fetched.results.filter { it.id != 0L }.map {
+                    val hit = it.toHit(movie)
+                    RankedRow(hit, it.popularity ?: 0.0, hit.title, hit.tmdbId)
+                }
+            }
+            DiscoverPage(mergeByPopularity(rows), page, maxOf(movies.await().totalPages, shows.await().totalPages))
+        }
+    }
+
+    @Volatile
+    private var discoverOptionsCache: DiscoverOptions? = null
+
+    /**
+     * The filter panel's genre and language lists. They change about never, so one successful
+     * read serves the process; a failure is not remembered.
+     */
+    suspend fun discoverOptions(): DiscoverOptions = discoverOptionsCache ?: coroutineScope {
+        val movieGenres = async { tmdb.genres("movie") }
+        val showGenres = async { tmdb.genres("tv") }
+        val languages = async { tmdb.languages() }
+        DiscoverOptions(
+            movieGenres = movieGenres.await().map { GenreOption(it.id, it.name) },
+            showGenres = showGenres.await().map { GenreOption(it.id, it.name) },
+            languages = languageOptions(languages.await().map { it.code to it.englishName }),
+        ).also { discoverOptionsCache = it }
+    }
+
+    private fun MediaKind?.tmdbMedia(): String? = when (this) {
+        MediaKind.MOVIE -> "movie"
+        MediaKind.SHOW -> "tv"
+        null -> null
+    }
+
+    /**
+     * What the library says about these search results — the user's rating and the watched,
+     * watchlist and favorite marks — read from the device alone. Live: a change updates its card. A title the
+     * library does not hold is simply absent.
+     */
+    fun observeLibraryMarks(hits: List<SearchHit>): Flow<LibraryMarks> = combine(
+        dao.observeMovieMarks(hits.filter { it.kind == MediaKind.MOVIE }.map { it.tmdbId }),
+        dao.observeShowMarks(hits.filter { it.kind == MediaKind.SHOW }.map { it.tmdbId }),
+    ) { movies, shows ->
+        LibraryMarks(movies.associate { it.tmdbId to it.toMark() }, shows.associate { it.tmdbId to it.toMark() })
+    }
+
+    private fun LibraryMarkRow.toMark() = LibraryMark(userRating, watched, watchlisted, favorited, dropped)
 
     // ------------------------------------------------------------------ movies
 
@@ -257,47 +499,72 @@ class VideoRepository(
         db.withTransaction {
             val movieId = ensure(reading.now)
             dao.insertWatch(WatchEntity(targetType = TARGET_MOVIE, targetId = movieId, watchedAt = at))
-            rating?.let { dao.upsertRating(RatingEntity(TARGET_MOVIE, movieId, it, reading.now)) }
+            rating?.let {
+                dao.upsertRating(RatingEntity(TARGET_MOVIE, movieId, it, reading.now))
+                mirror(SYNC_RATING, TARGET_MOVIE, tmdbId, SYNC_SET, it, reading.now)
+            }
         }
+        onSyncWrite()
     }
 
     /** Sets or — with null — clears the rating. Rating is a tracking action; clearing is not. */
     suspend fun rateMovie(tmdbId: Long, rating: Int?) {
         require(rating == null || rating in 1..10) { "rating must be 1..10" }
         if (rating == null) {
-            removeFromMovie(tmdbId) { dao.deleteRating(TARGET_MOVIE, it) }
+            removeFromMovie(tmdbId) { id, now ->
+                dao.deleteRating(TARGET_MOVIE, id)
+                mirror(SYNC_RATING, TARGET_MOVIE, tmdbId, SYNC_DELETE, null, now)
+            }
         } else {
-            addToMovie(tmdbId) { id, now -> dao.upsertRating(RatingEntity(TARGET_MOVIE, id, rating, now)) }
+            addToMovie(tmdbId) { id, now ->
+                dao.upsertRating(RatingEntity(TARGET_MOVIE, id, rating, now))
+                mirror(SYNC_RATING, TARGET_MOVIE, tmdbId, SYNC_SET, rating, now)
+            }
         }
     }
 
     suspend fun setMovieWatchlisted(tmdbId: Long, on: Boolean) = if (on) {
-        addToMovie(tmdbId) { id, now -> dao.insertWatchlist(WatchlistEntity(TARGET_MOVIE, id, now)) }
+        addToMovie(tmdbId) { id, now ->
+            dao.insertWatchlist(WatchlistEntity(TARGET_MOVIE, id, now))
+            mirror(SYNC_WATCHLIST, TARGET_MOVIE, tmdbId, SYNC_SET, null, now)
+        }
     } else {
-        removeFromMovie(tmdbId) { dao.deleteWatchlist(TARGET_MOVIE, it) }
+        removeFromMovie(tmdbId) { id, now ->
+            dao.deleteWatchlist(TARGET_MOVIE, id)
+            mirror(SYNC_WATCHLIST, TARGET_MOVIE, tmdbId, SYNC_DELETE, null, now)
+        }
     }
 
     suspend fun setMovieFavorited(tmdbId: Long, on: Boolean) = if (on) {
-        addToMovie(tmdbId) { id, now -> dao.insertFavorite(FavoriteEntity(TARGET_MOVIE, id, now)) }
+        addToMovie(tmdbId) { id, now ->
+            dao.insertFavorite(FavoriteEntity(TARGET_MOVIE, id, now))
+            mirror(SYNC_FAVORITE, TARGET_MOVIE, tmdbId, SYNC_SET, null, now)
+        }
     } else {
-        removeFromMovie(tmdbId) { dao.deleteFavorite(TARGET_MOVIE, it) }
+        removeFromMovie(tmdbId) { id, now ->
+            dao.deleteFavorite(TARGET_MOVIE, id)
+            mirror(SYNC_FAVORITE, TARGET_MOVIE, tmdbId, SYNC_DELETE, null, now)
+        }
     }
 
     suspend fun setMovieCopy(tmdbId: Long, kind: CopyKind, owned: Boolean) = if (owned) {
         addToMovie(tmdbId) { id, now -> dao.insertCopy(CopyEntity(TARGET_MOVIE, id, kind.value, now)) }
     } else {
-        removeFromMovie(tmdbId) { dao.deleteCopy(TARGET_MOVIE, it, kind.value) }
+        removeFromMovie(tmdbId) { id, _ -> dao.deleteCopy(TARGET_MOVIE, id, kind.value) }
     }
 
     private suspend fun addToMovie(tmdbId: Long, write: suspend (movieId: Long, now: String) -> Unit) {
         val ensure = movieGate(tmdbId)
         val now = clock.read().now
         db.withTransaction { write(ensure(now), now) }
+        onSyncWrite()
     }
 
     /** A removal never fetches: an untracked movie has nothing to remove. The catalog row stays. */
-    private suspend fun removeFromMovie(tmdbId: Long, write: suspend (movieId: Long) -> Unit) {
-        db.withTransaction { dao.movieByTmdbId(tmdbId)?.let { write(it.id) } }
+    private suspend fun removeFromMovie(tmdbId: Long, write: suspend (movieId: Long, now: String) -> Unit) {
+        val now = clock.read().now
+        db.withTransaction { dao.movieByTmdbId(tmdbId)?.let { write(it.id, now) } }
+        onSyncWrite()
     }
 
     /**
@@ -418,9 +685,15 @@ class VideoRepository(
     suspend fun rateShow(tmdbId: Long, rating: Int?) {
         require(rating == null || rating in 1..10) { "rating must be 1..10" }
         if (rating == null) {
-            removeFromShow(tmdbId) { dao.deleteRating(TARGET_SHOW, it) }
+            removeFromShow(tmdbId) { id, now ->
+                dao.deleteRating(TARGET_SHOW, id)
+                mirror(SYNC_RATING, TARGET_SHOW, tmdbId, SYNC_DELETE, null, now)
+            }
         } else {
-            addToShow(tmdbId) { id, now -> dao.upsertRating(RatingEntity(TARGET_SHOW, id, rating, now)) }
+            addToShow(tmdbId) { id, now ->
+                dao.upsertRating(RatingEntity(TARGET_SHOW, id, rating, now))
+                mirror(SYNC_RATING, TARGET_SHOW, tmdbId, SYNC_SET, rating, now)
+            }
         }
     }
 
@@ -431,28 +704,44 @@ class VideoRepository(
     suspend fun rateEpisode(showTmdbId: Long, seasonNumber: Int, number: Int, rating: Int?) {
         require(rating == null || rating in 1..10) { "rating must be 1..10" }
         if (rating == null) {
-            removeFromShow(showTmdbId) { id ->
-                dao.episodeByKey(id, seasonNumber, number)?.let { dao.deleteRating(TARGET_EPISODE, it.id) }
+            removeFromShow(showTmdbId) { id, now ->
+                dao.episodeByKey(id, seasonNumber, number)?.let {
+                    dao.deleteRating(TARGET_EPISODE, it.id)
+                    mirror(SYNC_RATING, TARGET_EPISODE, showTmdbId, SYNC_DELETE, null, now, seasonNumber, number)
+                }
             }
         } else {
             addToShow(showTmdbId) { id, now ->
                 val episode = dao.episodeByKey(id, seasonNumber, number)
                     ?: throw NoSuchElementException("episode $seasonNumber x $number")
                 dao.upsertRating(RatingEntity(TARGET_EPISODE, episode.id, rating, now))
+                mirror(SYNC_RATING, TARGET_EPISODE, showTmdbId, SYNC_SET, rating, now, seasonNumber, number)
             }
         }
     }
 
     suspend fun setShowWatchlisted(tmdbId: Long, on: Boolean) = if (on) {
-        addToShow(tmdbId) { id, now -> dao.insertWatchlist(WatchlistEntity(TARGET_SHOW, id, now)) }
+        addToShow(tmdbId) { id, now ->
+            dao.insertWatchlist(WatchlistEntity(TARGET_SHOW, id, now))
+            mirror(SYNC_WATCHLIST, TARGET_SHOW, tmdbId, SYNC_SET, null, now)
+        }
     } else {
-        removeFromShow(tmdbId) { dao.deleteWatchlist(TARGET_SHOW, it) }
+        removeFromShow(tmdbId) { id, now ->
+            dao.deleteWatchlist(TARGET_SHOW, id)
+            mirror(SYNC_WATCHLIST, TARGET_SHOW, tmdbId, SYNC_DELETE, null, now)
+        }
     }
 
     suspend fun setShowFavorited(tmdbId: Long, on: Boolean) = if (on) {
-        addToShow(tmdbId) { id, now -> dao.insertFavorite(FavoriteEntity(TARGET_SHOW, id, now)) }
+        addToShow(tmdbId) { id, now ->
+            dao.insertFavorite(FavoriteEntity(TARGET_SHOW, id, now))
+            mirror(SYNC_FAVORITE, TARGET_SHOW, tmdbId, SYNC_SET, null, now)
+        }
     } else {
-        removeFromShow(tmdbId) { dao.deleteFavorite(TARGET_SHOW, it) }
+        removeFromShow(tmdbId) { id, now ->
+            dao.deleteFavorite(TARGET_SHOW, id)
+            mirror(SYNC_FAVORITE, TARGET_SHOW, tmdbId, SYNC_DELETE, null, now)
+        }
     }
 
     /**
@@ -465,7 +754,7 @@ class VideoRepository(
                 .forEach { dao.insertCopy(CopyEntity(TARGET_SEASON, it.id, kind.value, now)) }
         }
     } else {
-        removeFromShow(tmdbId) { id ->
+        removeFromShow(tmdbId) { id, _ ->
             dao.seasons(id).filter { it.seasonNumber > 0 }
                 .forEach { dao.deleteCopy(TARGET_SEASON, it.id, kind.value) }
         }
@@ -476,11 +765,14 @@ class VideoRepository(
         val showId = trackShow(tmdbId)
         val now = clock.read().now
         db.withTransaction { write(showId, now) }
+        onSyncWrite()
     }
 
     /** A removal never fetches: an untracked show has nothing to remove. The catalog rows stay. */
-    private suspend fun removeFromShow(tmdbId: Long, write: suspend (showId: Long) -> Unit) {
-        db.withTransaction { dao.showByTmdbId(tmdbId)?.let { write(it.id) } }
+    private suspend fun removeFromShow(tmdbId: Long, write: suspend (showId: Long, now: String) -> Unit) {
+        val now = clock.read().now
+        db.withTransaction { dao.showByTmdbId(tmdbId)?.let { write(it.id, now) } }
+        onSyncWrite()
     }
 
     /**
@@ -569,7 +861,7 @@ class VideoRepository(
             dao.insertCopy(CopyEntity(TARGET_SEASON, season.id, kind.value, now))
         }
     } else {
-        removeFromShow(tmdbId) { id ->
+        removeFromShow(tmdbId) { id, _ ->
             dao.seasons(id).firstOrNull { it.seasonNumber == seasonNumber }
                 ?.let { dao.deleteCopy(TARGET_SEASON, it.id, kind.value) }
         }
@@ -630,9 +922,13 @@ class VideoRepository(
             val episode = dao.episodeByKey(showId, season, number)
                 ?: throw NoSuchElementException("episode S${season}E$number")
             dao.insertWatch(WatchEntity(targetType = TARGET_EPISODE, targetId = episode.id, watchedAt = at))
-            rating?.let { dao.upsertRating(RatingEntity(TARGET_EPISODE, episode.id, it, reading.now)) }
+            rating?.let {
+                dao.upsertRating(RatingEntity(TARGET_EPISODE, episode.id, it, reading.now))
+                mirror(SYNC_RATING, TARGET_EPISODE, showTmdbId, SYNC_SET, it, reading.now, season, number)
+            }
             recompute(showId, reading)
         }
+        onSyncWrite()
     }
 
     /**
@@ -660,7 +956,7 @@ class VideoRepository(
             else -> null
         }
         require(picked == null || !picked.isAfter(now)) { "watched_at is in the future" }
-        val zone = ZoneId.systemDefault()
+        val zone = UserZone.current
         return db.withTransaction {
             val watched = dao.watchedEpisodeIds(showId).toSet()
             val premieres = dao.seasons(showId).associate { it.seasonNumber to it.airDate }
@@ -753,7 +1049,12 @@ class VideoRepository(
     fun observeHasWatches(): Flow<Boolean> = dao.observeHasWatches()
 
     fun observeUpNext(): Flow<List<UpNextItem>> =
-        combine(dao.observeStartedShows(), dao.observeShowStates()) { started, states ->
+        combine(
+            dao.observeStartedShows(),
+            dao.observeShowStates(),
+            dao.observeAllEpisodeRatings(),
+        ) { started, states, ratings ->
+            val rated = ratings.associate { it.episodeId to it.rating }
             val today = clock.read().today
             val ids = started.map { it.showId }
             val shows = dao.showsByIds(ids).associateBy { it.id }
@@ -775,6 +1076,9 @@ class VideoRepository(
                     aired = pick.isEligible(today),
                     marker = episodeMarker(episode.episodeType, episode.episodeNumber),
                     progress = showProgress(refs, watched, today),
+                    // Out of the season's stored body, as the episode page and the history feed read it.
+                    score = parseEpisodeScores(seasons[episode.seasonId]?.metadataJson)[episode.episodeNumber],
+                    userRating = rated[episode.id],
                 )
             }.sortedWith(
                 compareByDescending<UpNextItem> { it.lastWatchedAt }
@@ -796,9 +1100,209 @@ class VideoRepository(
             dao.observeHistoryOldest(type.target, limit + 1)
         }
         return rows.map { list ->
-            HistoryPage(list.take(limit).mapNotNull { it.toItem() }, hasMore = list.size > limit)
+            val shown = list.take(limit)
+            // An episode's score lives in its season's stored body, as the episode page reads it:
+            // one read and one parse per season on the page.
+            val scores = dao.seasonBodies(shown.mapNotNull { it.seasonId }.distinct())
+                .associate { it.id to parseEpisodeScores(it.metadataJson) }
+            HistoryPage(shown.mapNotNull { it.toItem(scores) }, hasMore = list.size > limit)
         }
     }
+
+    // ------------------------------------------------------------------ lists
+
+    /**
+     * One list, whole and unordered — `orderList` is its page's order. Live: a title added,
+     * removed, dropped or watched anywhere re-emits. A pure local read.
+     */
+    fun observeList(key: ListKey): Flow<List<ListEntry>> = when (key) {
+        ListKey.WATCHLIST -> dao.observeWatchlistRows()
+        ListKey.FAVORITES -> dao.observeFavoriteRows()
+        ListKey.DROPPED -> dao.observeDroppedRows()
+    }.map { rows -> rows.map { it.toEntry() } }
+
+    /** Every list's card for the Lists page: all three, always, in [ListKey]'s order. */
+    fun observeListSummaries(): Flow<List<Pair<ListKey, ListSummary>>> =
+        combine(ListKey.entries.map { key -> observeList(key).map { key to summarize(it) } }) { it.toList() }
+
+    // ------------------------------------------------------------------ the TMDB account's pull
+    // (D-036). What the setup imports from the account lands through the ordinary tracking gate —
+    // and is NEVER queued back: none of these calls `mirror`, so a pull cannot echo to TMDB.
+
+    /** Overwrites the rating of a movie or show with the account's. */
+    suspend fun pullRating(kind: MediaKind, tmdbId: Long, rating: Int): PullWrite {
+        require(rating in 1..10) { "rating must be 1..10" }
+        if (kind == MediaKind.MOVIE) {
+            val held = dao.movieByTmdbId(tmdbId) != null
+            val ensure = movieGate(tmdbId)
+            val now = clock.read().now
+            db.withTransaction { dao.upsertRating(RatingEntity(TARGET_MOVIE, ensure(now), rating, now)) }
+            return PullWrite(materialised = !held, created = true)
+        }
+        val held = dao.showByTmdbId(tmdbId) != null
+        val showId = trackShow(tmdbId)
+        val now = clock.read().now
+        db.withTransaction { dao.upsertRating(RatingEntity(TARGET_SHOW, showId, rating, now)) }
+        return PullWrite(materialised = !held, created = true)
+    }
+
+    /** An episode TMDB no longer lists at that position is reported, not failed. */
+    suspend fun pullEpisodeRating(showTmdbId: Long, season: Int, number: Int, rating: Int): PullWrite {
+        require(rating in 1..10) { "rating must be 1..10" }
+        val held = dao.showByTmdbId(showTmdbId) != null
+        val showId = trackShow(showTmdbId)
+        val now = clock.read().now
+        val written = db.withTransaction {
+            val episode = dao.episodeByKey(showId, season, number) ?: return@withTransaction false
+            dao.upsertRating(RatingEntity(TARGET_EPISODE, episode.id, rating, now))
+            true
+        }
+        return PullWrite(materialised = !held, created = written, episodeMissing = !written)
+    }
+
+    /** Adds a movie or show to the watchlist ([favorite] false) or the favorites, if absent. */
+    suspend fun pullListed(favorite: Boolean, kind: MediaKind, tmdbId: Long): PullWrite {
+        val movie = kind == MediaKind.MOVIE
+        val type = if (movie) TARGET_MOVIE else TARGET_SHOW
+        val held = if (movie) dao.movieByTmdbId(tmdbId) != null else dao.showByTmdbId(tmdbId) != null
+        val ensure = if (movie) movieGate(tmdbId) else null
+        val showId = if (movie) null else trackShow(tmdbId)
+        val now = clock.read().now
+        val created = db.withTransaction {
+            val id = showId ?: checkNotNull(ensure)(now)
+            val row = if (favorite) {
+                dao.insertFavorite(FavoriteEntity(type, id, now))
+            } else {
+                dao.insertWatchlist(WatchlistEntity(type, id, now))
+            }
+            row != -1L
+        }
+        return PullWrite(materialised = !held, created = created)
+    }
+
+    // ------------------------------------------------------------------ restore (D-023)
+    // One Ticket Box group at a time: resolve outside any transaction, then one transaction and at
+    // most one recompute. The file's instants move `watched_at` and a rating's `updated_at`;
+    // everything else keeps the real clock.
+
+    /**
+     * The movie a restore group names. Null when it is not held and [mayFetch] is false (TMDB has
+     * been failing); throws [ro.mbyte.sofalog.data.tmdb.TmdbException] when the fetch fails.
+     */
+    override suspend fun resolveRestoreMovie(tmdbId: Long, mayFetch: Boolean): RestoreResolved? {
+        dao.movieByTmdbId(tmdbId)?.let { return RestoreResolved(it.id, it.title, materialised = false) }
+        if (!mayFetch) return null
+        val fetched = tmdb.movie(tmdbId)
+        val now = clock.read().now
+        // Its own small transaction, as the show's materialisation is: the group's writes follow.
+        val id = db.withTransaction {
+            dao.movieByTmdbId(tmdbId)?.id ?: dao.insertMovie(fetched.toEntity(id = 0, now = now))
+        }
+        return RestoreResolved(id, fetched.value.title, materialised = true)
+    }
+
+    override suspend fun resolveRestoreShow(tmdbId: Long, mayFetch: Boolean): RestoreResolved? {
+        dao.showByTmdbId(tmdbId)?.let { return RestoreResolved(it.id, it.title, materialised = false) }
+        if (!mayFetch) return null
+        val id = trackShow(tmdbId)
+        return RestoreResolved(id, dao.showById(id)?.title.orEmpty(), materialised = true)
+    }
+
+    override suspend fun writeRestoreMovie(target: RestoreResolved, group: MovieGroup): RestoreCounts {
+        val now = clock.read().now
+        val movieId = target.localId
+        val counts = db.withTransaction {
+            var c = RestoreCounts()
+            // Replace: only a group the file has watches for loses its existing ones.
+            if (group.watches.isNotEmpty()) {
+                val replaced = dao.deleteTargetWatches(TARGET_MOVIE, movieId)
+                dao.insertWatches(group.watches.map { WatchEntity(targetType = TARGET_MOVIE, targetId = movieId, watchedAt = it) })
+                c = c.copy(historyInserted = group.watches.size, historyReplaced = replaced)
+            }
+            group.rating?.let {
+                dao.upsertRating(RatingEntity(TARGET_MOVIE, movieId, it.value, it.at))
+                mirror(SYNC_RATING, TARGET_MOVIE, group.tmdbId, SYNC_SET, it.value, now)
+                c = c.copy(ratingsUpserted = 1)
+            }
+            group.watchlistAt?.let {
+                if (dao.insertWatchlist(WatchlistEntity(TARGET_MOVIE, movieId, it)) != -1L) {
+                    mirror(SYNC_WATCHLIST, TARGET_MOVIE, group.tmdbId, SYNC_SET, null, now)
+                    c = c.copy(watchlistInserted = 1)
+                }
+            }
+            group.favoriteAt?.let {
+                if (dao.insertFavorite(FavoriteEntity(TARGET_MOVIE, movieId, it)) != -1L) {
+                    mirror(SYNC_FAVORITE, TARGET_MOVIE, group.tmdbId, SYNC_SET, null, now)
+                    c = c.copy(favoritesInserted = 1)
+                }
+            }
+            c
+        }
+        onSyncWrite()
+        return counts
+    }
+
+    override suspend fun writeRestoreShow(target: RestoreResolved, group: ShowGroup): Pair<RestoreCounts, List<RestoreSkip>> {
+        val showId = target.localId
+        val resolver = EpisodeResolver(dao.episodeKeys(showId).map { EpisodeKey(it.id, it.seasonNumber, it.episodeNumber, it.tmdbId) })
+        val skips = mutableListOf<RestoreSkip>()
+        fun missing(kind: String, season: Int, episode: Int) {
+            val (hint, last) = episodeSkipHint(resolver.numbers(season), season, episode)
+            skips += RestoreSkip(kind, "episode", null, group.tmdbId, season, episode, SKIP_EPISODE_NOT_FOUND, target.title, hint, last)
+        }
+        val watches = group.watches.mapNotNull { w ->
+            val id = resolver.resolve(w.tmdbId, w.season, w.episode)
+            if (id == null) missing(RESTORE_HISTORY, w.season, w.episode)
+            id?.let { WatchEntity(targetType = TARGET_EPISODE, targetId = it, watchedAt = w.at) }
+        }
+        val ratings = group.episodeRatings.mapNotNull { r ->
+            val id = resolver.resolve(r.tmdbId, r.season, r.episode)
+            if (id == null) missing(RESTORE_RATING, r.season, r.episode)
+            id?.let { RatingEntity(TARGET_EPISODE, it, r.rating.value, r.rating.at) to r }
+        }
+        // Read per group: a long import can cross midnight.
+        val reading = clock.read()
+        val counts = db.withTransaction {
+            var c = RestoreCounts()
+            // The gate is that the FILE had watches for the show, not that any resolved.
+            if (group.watches.isNotEmpty()) {
+                val replaced = dao.deleteShowWatches(showId)
+                dao.insertWatches(watches)
+                c = c.copy(historyInserted = watches.size, historyReplaced = replaced)
+            }
+            group.showRating?.let {
+                dao.upsertRating(RatingEntity(TARGET_SHOW, showId, it.value, it.at))
+                mirror(SYNC_RATING, TARGET_SHOW, group.tmdbId, SYNC_SET, it.value, reading.now)
+                c = c.copy(ratingsUpserted = c.ratingsUpserted + 1)
+            }
+            for ((row, planned) in ratings) {
+                dao.upsertRating(row)
+                mirror(SYNC_RATING, TARGET_EPISODE, group.tmdbId, SYNC_SET, row.rating, reading.now, planned.season, planned.episode)
+            }
+            c = c.copy(ratingsUpserted = c.ratingsUpserted + ratings.size)
+            group.watchlistAt?.let {
+                if (dao.insertWatchlist(WatchlistEntity(TARGET_SHOW, showId, it)) != -1L) {
+                    mirror(SYNC_WATCHLIST, TARGET_SHOW, group.tmdbId, SYNC_SET, null, reading.now)
+                    c = c.copy(watchlistInserted = 1)
+                }
+            }
+            group.favoriteAt?.let {
+                if (dao.insertFavorite(FavoriteEntity(TARGET_SHOW, showId, it)) != -1L) {
+                    mirror(SYNC_FAVORITE, TARGET_SHOW, group.tmdbId, SYNC_SET, null, reading.now)
+                    c = c.copy(favoritesInserted = 1)
+                }
+            }
+            // A rating is not a watch (D-010): only a group with watches recomputes.
+            if (group.watches.isNotEmpty()) recompute(showId, reading)
+            c
+        }
+        onSyncWrite()
+        return counts to skips
+    }
+
+    /** A skip's title, read locally at the end of a run; null when the title is not held. */
+    override suspend fun restoreTitle(movie: Boolean, tmdbId: Long): String? =
+        if (movie) dao.movieByTmdbId(tmdbId)?.title else dao.showByTmdbId(tmdbId)?.title
 
     private companion object {
         val STALE_AFTER: Duration = Duration.ofHours(48)
@@ -807,12 +1311,26 @@ class VideoRepository(
 
 private fun EpisodeEntity.ref() = EpisodeRef(id, seasonNumber, episodeNumber, airDate)
 
+private fun ListRow.toEntry() = ListEntry(
+    kind = if (targetType == TARGET_MOVIE) ListItemKind.MOVIE else ListItemKind.SHOW,
+    localId = localId,
+    tmdbId = tmdbId,
+    title = title,
+    date = date,
+    posterPath = posterPath,
+    backdropPath = backdropPath,
+    score = voteAverage?.takeIf { it > 0 },
+    userRating = userRating,
+    watched = watched,
+    addedAt = addedAt,
+)
+
 /** Null only for a row the query's own guard should already have dropped. */
-private fun HistoryRow.toItem(): HistoryItem? = if (targetType == TARGET_MOVIE) {
+private fun HistoryRow.toItem(episodeScores: Map<Long, Map<Int, Double>>): HistoryItem? = if (targetType == TARGET_MOVIE) {
     movieTmdbId?.let {
         HistoryItem.Movie(
             id, targetId, targetWatches, watchedAt, posterPath, userRating,
-            movieScore?.takeIf { s -> s > 0 }, it, movieTitle.orEmpty(),
+            movieScore?.takeIf { s -> s > 0 }, watchlisted, favorited, it, movieTitle.orEmpty(),
         )
     }
 } else {
@@ -823,6 +1341,7 @@ private fun HistoryRow.toItem(): HistoryItem? = if (targetType == TARGET_MOVIE) 
     } else {
         HistoryItem.Episode(
             id, targetId, targetWatches, watchedAt, posterPath, userRating,
+            episodeScores[seasonId]?.get(number), watchlisted, favorited,
             showId, showTmdbId, showTitle.orEmpty(), season, number, episodeTitle,
         )
     }

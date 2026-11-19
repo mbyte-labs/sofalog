@@ -284,7 +284,6 @@ fun EpisodeScreen(
                                 episodeMarker(episode.episodeType, episode.episodeNumber)?.label,
                             ),
                             byline = null,
-                            score = null,
                             genres = null,
                             tagline = null,
                             overview = episode.overview,
@@ -364,8 +363,15 @@ fun EpisodeScreen(
                 }
             }
             val collapsed by rememberHeroCollapse(list, loaded = show != null && episode != null, bandHeight = bandHeight)
-            OverlaidTopBar(if (show == null) code else "${show.title} — $code", collapsed, wide, onMenu) { disc ->
-                if (episode != null) StatusBadges(watched = watched, watchlisted = false, favorited = false, disc = disc)
+            OverlaidTopBar(if (show == null) code else "${show.title} — $code", collapsed, wide, onMenu) {
+                if (episode != null) {
+                    StatusBadges(
+                        watched = watched,
+                        watchlisted = false,
+                        favorited = false,
+                        dropped = bundle?.status == ShowStatus.DROPPED,
+                    )
+                }
             }
         }
     }

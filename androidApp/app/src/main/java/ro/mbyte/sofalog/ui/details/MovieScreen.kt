@@ -240,7 +240,6 @@ fun MovieScreen(tmdbId: Long, onMenu: () -> Unit, onOpenMovie: (Long) -> Unit) {
                                 movie.runtime?.takeIf { it > 0 }?.let(::formatRuntime),
                             ),
                             byline = details.director?.let { Byline("Directed by", it) },
-                            score = movie.voteAverage,
                             genres = movie.genres,
                             tagline = details.tagline,
                             overview = movie.overview,
@@ -311,13 +310,12 @@ fun MovieScreen(tmdbId: Long, onMenu: () -> Unit, onOpenMovie: (Long) -> Unit) {
                 }
             }
             val collapsed by rememberHeroCollapse(list, loaded = movie != null, bandHeight = bandHeight)
-            OverlaidTopBar(movie?.title ?: "Movie", collapsed, wide, onMenu) { disc ->
+            OverlaidTopBar(movie?.title ?: "Movie", collapsed, wide, onMenu) {
                 if (movie != null) {
                     StatusBadges(
                         watched = state.watches.isNotEmpty(),
                         watchlisted = state.user.watchlisted,
                         favorited = state.user.favorited,
-                        disc = disc,
                     )
                 }
             }

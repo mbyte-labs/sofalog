@@ -287,7 +287,6 @@ fun SeasonScreen(
                                 formatDay(season?.airDate)?.let { "Premiered $it" },
                             ),
                             byline = null,
-                            score = null,
                             genres = null,
                             tagline = null,
                             overview = season?.overview,
@@ -401,8 +400,15 @@ fun SeasonScreen(
                 }
             }
             val collapsed by rememberHeroCollapse(list, loaded = show != null, bandHeight = bandHeight)
-            OverlaidTopBar(if (show == null) name else "${show.title} — $name", collapsed, wide, onMenu) { disc ->
-                if (show != null) StatusBadges(watched = seasonWatched, watchlisted = false, favorited = false, disc = disc)
+            OverlaidTopBar(if (show == null) name else "${show.title} — $name", collapsed, wide, onMenu) {
+                if (show != null) {
+                    StatusBadges(
+                        watched = seasonWatched,
+                        watchlisted = false,
+                        favorited = false,
+                        dropped = bundle.status == ShowStatus.DROPPED,
+                    )
+                }
             }
         }
     }

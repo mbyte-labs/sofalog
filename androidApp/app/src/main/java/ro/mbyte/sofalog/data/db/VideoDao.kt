@@ -5,6 +5,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
@@ -26,6 +27,13 @@ data class SeasonCopy(
     val kind: String,
 )
 
+data class EpisodeKeyRow(
+    val id: Long,
+    @ColumnInfo(name = "season_number") val seasonNumber: Int,
+    @ColumnInfo(name = "episode_number") val episodeNumber: Int,
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long?,
+)
+
 /**
  * One watch as the history feed lists it. Exactly one of the movie / episode halves is set, by
  * `target_type`; the poster is already the card's (an episode shows its season's poster, else its
@@ -40,6 +48,8 @@ data class HistoryRow(
     @ColumnInfo(name = "target_watches") val targetWatches: Int,
     /** The episode's show, by local id; null for a movie. */
     @ColumnInfo(name = "show_id") val showId: Long?,
+    /** The episode's season, by local id — where its TMDB score is stored; null for a movie. */
+    @ColumnInfo(name = "season_id") val seasonId: Long?,
     @ColumnInfo(name = "movie_tmdb_id") val movieTmdbId: Long?,
     @ColumnInfo(name = "movie_title") val movieTitle: String?,
     @ColumnInfo(name = "movie_score") val movieScore: Double?,
@@ -50,6 +60,9 @@ data class HistoryRow(
     @ColumnInfo(name = "episode_title") val episodeTitle: String?,
     @ColumnInfo(name = "poster_path") val posterPath: String?,
     @ColumnInfo(name = "user_rating") val userRating: Int?,
+    /** The movie's own marks; an episode's are its show's. */
+    val watchlisted: Boolean,
+    val favorited: Boolean,
 )
 
 /*
@@ -60,7 +73,7 @@ data class HistoryRow(
  */
 private const val HISTORY_SELECT =
     "SELECT w.id AS id, w.watched_at AS watched_at, w.target_type AS target_type, " +
-        "w.target_id AS target_id, e.show_id AS show_id, " +
+        "w.target_id AS target_id, e.show_id AS show_id, e.season_id AS season_id, " +
         "(SELECT COUNT(*) FROM user_watch_history c " +
         "WHERE c.target_type = w.target_type AND c.target_id = w.target_id) AS target_watches, " +
         "m.tmdb_id AS movie_tmdb_id, m.title AS movie_title, m.vote_average AS movie_score, " +
@@ -69,7 +82,16 @@ private const val HISTORY_SELECT =
         "CASE WHEN w.target_type = 'movie' THEN m.poster_path " +
         "ELSE COALESCE(se.poster_path, s.poster_path) END AS poster_path, " +
         "(SELECT r.rating FROM user_video_ratings r " +
-        "WHERE r.target_type = w.target_type AND r.target_id = w.target_id) AS user_rating " +
+        "WHERE r.target_type = w.target_type AND r.target_id = w.target_id) AS user_rating, " +
+        // An episode is never itself listed: it borrows its show's marks.
+        "CASE WHEN w.target_type = 'movie' THEN EXISTS(SELECT 1 FROM user_video_watchlist wl " +
+        "WHERE wl.target_type = 'movie' AND wl.target_id = w.target_id) " +
+        "ELSE EXISTS(SELECT 1 FROM user_video_watchlist wl " +
+        "WHERE wl.target_type = 'show' AND wl.target_id = e.show_id) END AS watchlisted, " +
+        "CASE WHEN w.target_type = 'movie' THEN EXISTS(SELECT 1 FROM user_video_favorites f " +
+        "WHERE f.target_type = 'movie' AND f.target_id = w.target_id) " +
+        "ELSE EXISTS(SELECT 1 FROM user_video_favorites f " +
+        "WHERE f.target_type = 'show' AND f.target_id = e.show_id) END AS favorited " +
         "FROM user_watch_history w " +
         "LEFT JOIN movies m ON w.target_type = 'movie' AND m.id = w.target_id " +
         "LEFT JOIN episodes e ON w.target_type = 'episode' AND e.id = w.target_id " +
@@ -77,6 +99,72 @@ private const val HISTORY_SELECT =
         "LEFT JOIN seasons se ON se.id = e.season_id " +
         "WHERE (m.id IS NOT NULL OR s.id IS NOT NULL) " +
         "AND (:type IS NULL OR w.target_type = :type) "
+
+/** One season's stored TMDB body, for a read that wants several at once. */
+data class SeasonBodyRow(
+    val id: Long,
+    @ColumnInfo(name = "metadata_json") val metadataJson: String?,
+)
+
+/**
+ * One entry of a list page (watchlist, favorites, dropped): a movie or a show, by `target_type`.
+ * [addedAt] is when it joined the list — for a dropped show, the instant it was dropped.
+ */
+data class ListRow(
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "local_id") val localId: Long,
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    val title: String,
+    /** A movie's release date, a show's first air date. */
+    val date: String?,
+    @ColumnInfo(name = "poster_path") val posterPath: String?,
+    @ColumnInfo(name = "backdrop_path") val backdropPath: String?,
+    @ColumnInfo(name = "vote_average") val voteAverage: Double?,
+    @ColumnInfo(name = "user_rating") val userRating: Int?,
+    /** A movie: any watch in the log. A show: finished — its status reached `watched`. */
+    val watched: Boolean,
+    @ColumnInfo(name = "added_at") val addedAt: String,
+)
+
+/*
+ * The watchlist and favorites pages, which differ in their table alone. Each catalog join is
+ * guarded by its own target type (movie 5 and show 5 both exist), so exactly one side is set and
+ * COALESCE picks it; a row whose target is gone is dropped. The watch log is probed, never joined.
+ * No ORDER BY: the lists are read whole and ordered by `orderList`.
+ */
+private const val LIST_COLUMNS =
+    "SELECT l.target_type AS target_type, l.target_id AS local_id, l.added_at AS added_at, " +
+        "COALESCE(m.tmdb_id, sh.tmdb_id) AS tmdb_id, COALESCE(m.title, sh.title) AS title, " +
+        "COALESCE(m.release_date, sh.first_air_date) AS date, " +
+        "COALESCE(m.poster_path, sh.poster_path) AS poster_path, " +
+        "COALESCE(m.backdrop_path, sh.backdrop_path) AS backdrop_path, " +
+        "COALESCE(m.vote_average, sh.vote_average) AS vote_average, " +
+        "(SELECT r.rating FROM user_video_ratings r " +
+        "WHERE r.target_type = l.target_type AND r.target_id = l.target_id) AS user_rating, " +
+        "CASE WHEN l.target_type = 'movie' THEN EXISTS(SELECT 1 FROM user_watch_history w " +
+        "WHERE w.target_type = 'movie' AND w.target_id = l.target_id) " +
+        "ELSE EXISTS(SELECT 1 FROM user_show_states st " +
+        "WHERE st.show_id = l.target_id AND st.status = 'watched') END AS watched "
+
+private const val LIST_JOINS =
+    "LEFT JOIN movies m ON l.target_type = 'movie' AND m.id = l.target_id " +
+        "LEFT JOIN shows sh ON l.target_type = 'show' AND sh.id = l.target_id " +
+        "WHERE (m.id IS NOT NULL OR sh.id IS NOT NULL)"
+
+/** What the library holds about one title, by its TMDB id: a search card's marks. */
+data class LibraryMarkRow(
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    @ColumnInfo(name = "user_rating") val userRating: Int?,
+    /**
+     * A movie: any watch in the log. A show: STARTED — any episode watch, specials included —
+     * unless it was dropped, which shows alone. Looser than the Lists pages' "finished".
+     */
+    val watched: Boolean,
+    val watchlisted: Boolean,
+    val favorited: Boolean,
+    /** A show the user gave up on. Never a movie: only a show can be dropped. */
+    val dropped: Boolean,
+)
 
 @Dao
 interface VideoDao {
@@ -109,6 +197,41 @@ interface VideoDao {
     @Insert
     suspend fun insertShow(show: ShowEntity): Long
 
+    // ---- library marks, for titles named by TMDB id (search results). The watch log is probed,
+    // never joined, and every probe carries its target type: movie 5 and show 5 both exist.
+    @Query(
+        "SELECT m.tmdb_id AS tmdb_id, " +
+            "(SELECT r.rating FROM user_video_ratings r " +
+            "WHERE r.target_type = 'movie' AND r.target_id = m.id) AS user_rating, " +
+            "EXISTS(SELECT 1 FROM user_watch_history w " +
+            "WHERE w.target_type = 'movie' AND w.target_id = m.id) AS watched, " +
+            "EXISTS(SELECT 1 FROM user_video_watchlist wl " +
+            "WHERE wl.target_type = 'movie' AND wl.target_id = m.id) AS watchlisted, " +
+            "EXISTS(SELECT 1 FROM user_video_favorites f " +
+            "WHERE f.target_type = 'movie' AND f.target_id = m.id) AS favorited, " +
+            "0 AS dropped " +
+            "FROM movies m WHERE m.tmdb_id IN (:tmdbIds)",
+    )
+    fun observeMovieMarks(tmdbIds: List<Long>): Flow<List<LibraryMarkRow>>
+
+    @Query(
+        "SELECT sh.tmdb_id AS tmdb_id, " +
+            "(SELECT r.rating FROM user_video_ratings r " +
+            "WHERE r.target_type = 'show' AND r.target_id = sh.id) AS user_rating, " +
+            "(EXISTS(SELECT 1 FROM user_watch_history w JOIN episodes e ON e.id = w.target_id " +
+            "WHERE w.target_type = 'episode' AND e.show_id = sh.id) " +
+            "AND NOT EXISTS(SELECT 1 FROM user_show_states st " +
+            "WHERE st.show_id = sh.id AND st.status = 'dropped')) AS watched, " +
+            "EXISTS(SELECT 1 FROM user_video_watchlist wl " +
+            "WHERE wl.target_type = 'show' AND wl.target_id = sh.id) AS watchlisted, " +
+            "EXISTS(SELECT 1 FROM user_video_favorites f " +
+            "WHERE f.target_type = 'show' AND f.target_id = sh.id) AS favorited, " +
+            "EXISTS(SELECT 1 FROM user_show_states st " +
+            "WHERE st.show_id = sh.id AND st.status = 'dropped') AS dropped " +
+            "FROM shows sh WHERE sh.tmdb_id IN (:tmdbIds)",
+    )
+    fun observeShowMarks(tmdbIds: List<Long>): Flow<List<LibraryMarkRow>>
+
     @Update
     suspend fun updateShow(show: ShowEntity)
 
@@ -121,6 +244,9 @@ interface VideoDao {
 
     @Query("SELECT * FROM seasons WHERE show_id IN (:showIds)")
     suspend fun seasonsForShows(showIds: List<Long>): List<SeasonEntity>
+
+    @Query("SELECT id, metadata_json FROM seasons WHERE id IN (:ids)")
+    suspend fun seasonBodies(ids: List<Long>): List<SeasonBodyRow>
 
     @Insert
     suspend fun insertSeason(season: SeasonEntity): Long
@@ -147,6 +273,10 @@ interface VideoDao {
     )
     suspend fun episodeByKey(showId: Long, season: Int, number: Int): EpisodeEntity?
 
+    /** Every episode of a show by both of its keys — what a restore resolves the file's entries against. */
+    @Query("SELECT id, season_number, episode_number, tmdb_id FROM episodes WHERE show_id = :showId ORDER BY id")
+    suspend fun episodeKeys(showId: Long): List<EpisodeKeyRow>
+
     @Insert
     suspend fun insertEpisode(episode: EpisodeEntity): Long
 
@@ -169,7 +299,7 @@ interface VideoDao {
 
     /** Every entry of one target. The pair names it: the id alone would reach the other kind. */
     @Query("DELETE FROM user_watch_history WHERE target_type = :type AND target_id = :targetId")
-    suspend fun deleteTargetWatches(type: String, targetId: Long)
+    suspend fun deleteTargetWatches(type: String, targetId: Long): Int
 
     @Query(
         "DELETE FROM user_watch_history WHERE target_type = 'episode' AND target_id IN " +
@@ -181,7 +311,7 @@ interface VideoDao {
         "DELETE FROM user_watch_history WHERE target_type = 'episode' AND target_id IN " +
             "(SELECT id FROM episodes WHERE show_id = :showId)",
     )
-    suspend fun deleteShowWatches(showId: Long)
+    suspend fun deleteShowWatches(showId: Long): Int
 
     @Query(
         "SELECT w.* FROM user_watch_history w JOIN movies m ON m.id = w.target_id " +
@@ -240,9 +370,13 @@ interface VideoDao {
     )
     fun observeEpisodeRatings(showId: Long): Flow<List<EpisodeRating>>
 
+    /** Every episode rating there is — Up Next's read, which spans every started show. */
+    @Query("SELECT target_id AS episode_id, rating FROM user_video_ratings WHERE target_type = 'episode'")
+    fun observeAllEpisodeRatings(): Flow<List<EpisodeRating>>
+
     // ---- watchlist, favorites, owned copies: independent axes, each keyed by the target pair.
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertWatchlist(row: WatchlistEntity)
+    suspend fun insertWatchlist(row: WatchlistEntity): Long
 
     @Query("DELETE FROM user_video_watchlist WHERE target_type = :type AND target_id = :targetId")
     suspend fun deleteWatchlist(type: String, targetId: Long)
@@ -251,13 +385,36 @@ interface VideoDao {
     fun observeWatchlisted(type: String, targetId: Long): Flow<Boolean>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
-    suspend fun insertFavorite(row: FavoriteEntity)
+    suspend fun insertFavorite(row: FavoriteEntity): Long
 
     @Query("DELETE FROM user_video_favorites WHERE target_type = :type AND target_id = :targetId")
     suspend fun deleteFavorite(type: String, targetId: Long)
 
     @Query("SELECT EXISTS(SELECT 1 FROM user_video_favorites WHERE target_type = :type AND target_id = :targetId)")
     fun observeFavorited(type: String, targetId: Long): Flow<Boolean>
+
+    // ---- the list pages: each list read whole, live.
+    @Query(LIST_COLUMNS + "FROM user_video_watchlist l " + LIST_JOINS)
+    fun observeWatchlistRows(): Flow<List<ListRow>>
+
+    @Query(LIST_COLUMNS + "FROM user_video_favorites l " + LIST_JOINS)
+    fun observeFavoriteRows(): Flow<List<ListRow>>
+
+    /**
+     * Dropped shows: a view over the state rows, not a table. `updated_at` is the drop instant —
+     * dropping stamps it and no recompute touches a dropped row.
+     */
+    @Query(
+        "SELECT 'show' AS target_type, sh.id AS local_id, st.updated_at AS added_at, " +
+            "sh.tmdb_id AS tmdb_id, sh.title AS title, sh.first_air_date AS date, " +
+            "sh.poster_path AS poster_path, sh.backdrop_path AS backdrop_path, " +
+            "sh.vote_average AS vote_average, " +
+            "(SELECT r.rating FROM user_video_ratings r " +
+            "WHERE r.target_type = 'show' AND r.target_id = sh.id) AS user_rating, " +
+            "0 AS watched " +
+            "FROM user_show_states st JOIN shows sh ON sh.id = st.show_id WHERE st.status = 'dropped'",
+    )
+    fun observeDroppedRows(): Flow<List<ListRow>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCopy(row: CopyEntity)
@@ -297,4 +454,55 @@ interface VideoDao {
 
     @Query("DELETE FROM user_show_states WHERE show_id = :showId")
     suspend fun deleteShowState(showId: Long)
+
+    // ------------------------------------------------------------------ delete data
+
+    @Query("DELETE FROM user_watch_history")
+    suspend fun deleteAllWatches()
+
+    @Query("DELETE FROM user_show_states")
+    suspend fun deleteAllShowStates()
+
+    @Query("DELETE FROM user_video_ratings")
+    suspend fun deleteAllRatings()
+
+    @Query("DELETE FROM user_video_watchlist")
+    suspend fun deleteAllWatchlist()
+
+    @Query("DELETE FROM user_video_favorites")
+    suspend fun deleteAllFavorites()
+
+    @Query("DELETE FROM user_video_copies")
+    suspend fun deleteAllCopies()
+
+    @Query("DELETE FROM episodes")
+    suspend fun deleteAllEpisodes()
+
+    @Query("DELETE FROM seasons")
+    suspend fun deleteAllSeasons()
+
+    @Query("DELETE FROM shows")
+    suspend fun deleteAllShows()
+
+    @Query("DELETE FROM movies")
+    suspend fun deleteAllMovies()
+
+    /**
+     * Empties the video library: every per-user table and the catalog rows they hang off, which
+     * exist on a device only because something tracked them. One transaction, so a reader never
+     * sees half a library.
+     */
+    @Transaction
+    suspend fun deleteLibrary() {
+        deleteAllWatches()
+        deleteAllShowStates()
+        deleteAllRatings()
+        deleteAllWatchlist()
+        deleteAllFavorites()
+        deleteAllCopies()
+        deleteAllEpisodes()
+        deleteAllSeasons()
+        deleteAllShows()
+        deleteAllMovies()
+    }
 }

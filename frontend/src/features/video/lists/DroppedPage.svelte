@@ -55,7 +55,7 @@
 <section>
   <p class="back-link"><a href="/video/lists" use:route>← Lists</a></p>
   <div class="page-head">
-    <h1>Dropped</h1>
+    <h1>Dropped shows</h1>
     <button
       class="filters-toggle"
       class:open={filtersOpen}

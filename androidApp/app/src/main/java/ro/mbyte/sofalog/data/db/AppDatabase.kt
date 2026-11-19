@@ -19,19 +19,24 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         WatchlistEntity::class,
         FavoriteEntity::class,
         CopyEntity::class,
+        SettingEntity::class,
+        TmdbAccountEntity::class,
+        TmdbSyncEntity::class,
     ],
-    version = 5,
+    version = 7,
     // Schema export is off while the app is unreleased, but devices already hold data, so every
     // version change carries a real migration below — never a destructive fallback.
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun videoDao(): VideoDao
+    abstract fun settingsDao(): SettingsDao
+    abstract fun tmdbSyncDao(): TmdbSyncDao
 
     companion object {
         fun open(context: Context): AppDatabase =
             Room.databaseBuilder(context, AppDatabase::class.java, "sofalog.db")
-                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5)
+                .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4, MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
                 .build()
 
         /**
@@ -83,6 +88,41 @@ abstract class AppDatabase : RoomDatabase() {
             override fun migrate(db: SupportSQLiteDatabase) {
                 db.execSQL("ALTER TABLE seasons ADD COLUMN metadata_json TEXT")
                 db.execSQL("ALTER TABLE seasons ADD COLUMN fetched_at TEXT")
+            }
+        }
+
+        /** Adds the app's settings: the user's time zone and the where-to-watch country. */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS settings (name TEXT NOT NULL, value TEXT NOT NULL, PRIMARY KEY(name))",
+                )
+            }
+        }
+
+        /** Adds the TMDB account link and its outbox (D-029, D-036). */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS user_tmdb_accounts (" +
+                        "id INTEGER NOT NULL, tmdb_account_id INTEGER NOT NULL, tmdb_username TEXT NOT NULL, " +
+                        "linked_at TEXT NOT NULL, broken_at TEXT, setup_done INTEGER NOT NULL, " +
+                        "sync_ratings INTEGER NOT NULL, sync_watchlist INTEGER NOT NULL, " +
+                        "sync_favorites INTEGER NOT NULL, pull_started_at TEXT, PRIMARY KEY(id))",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS user_tmdb_sync (" +
+                        "id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, kind TEXT NOT NULL, " +
+                        "target_type TEXT NOT NULL, tmdb_id INTEGER NOT NULL, season_number INTEGER NOT NULL, " +
+                        "episode_number INTEGER NOT NULL, op TEXT NOT NULL, rating INTEGER, " +
+                        "attempts INTEGER NOT NULL, next_retry_at TEXT, last_error TEXT, " +
+                        "created_at TEXT NOT NULL, updated_at TEXT NOT NULL)",
+                )
+                db.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS " +
+                        "index_user_tmdb_sync_kind_target_type_tmdb_id_season_number_episode_number " +
+                        "ON user_tmdb_sync (kind, target_type, tmdb_id, season_number, episode_number)",
+                )
             }
         }
     }

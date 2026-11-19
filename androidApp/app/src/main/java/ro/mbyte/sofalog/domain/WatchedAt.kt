@@ -16,6 +16,27 @@ import java.time.temporal.ChronoUnit
 /** The instant as the log stores it: RFC3339 UTC, whole seconds. */
 fun storedInstant(instant: Instant): String = instant.truncatedTo(ChronoUnit.SECONDS).toString()
 
+/** One of a backup file's timestamps, normalised — or why it cannot be taken. */
+sealed interface InstantResult {
+    data class Ok(val at: String) : InstantResult
+    data object Unparsable : InstantResult
+    data object Future : InstantResult
+}
+
+private val RFC3339 = Regex("""^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,9})?(Z|[+-]\d{2}:\d{2})$""")
+
+/**
+ * The one rule for an instant that came from outside (the server's `NormaliseInstant`): strict
+ * RFC3339 with seconds and an offset, not after [now], stored as UTC whole seconds. The future
+ * check is on the full-precision instant, before the truncation.
+ */
+fun normaliseInstant(raw: String?, now: Instant): InstantResult {
+    if (raw == null || !RFC3339.matches(raw)) return InstantResult.Unparsable
+    val at = runCatching { java.time.OffsetDateTime.parse(raw).toInstant() }.getOrNull()
+        ?: return InstantResult.Unparsable
+    return if (at.isAfter(now)) InstantResult.Future else InstantResult.Ok(storedInstant(at))
+}
+
 /**
  * "On its release date": midnight in the user's zone on the air date — the server's
  * `episode_air` rule. Null when there is no usable date.

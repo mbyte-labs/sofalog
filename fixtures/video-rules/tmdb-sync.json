@@ -1,0 +1,22 @@
+{
+  "rating_rounding": [
+    { "value": 0, "want": 1 },
+    { "value": 0.5, "want": 1 },
+    { "value": 1.4, "want": 1 },
+    { "value": 1.5, "want": 2 },
+    { "value": 7.4, "want": 7 },
+    { "value": 7.5, "want": 8 },
+    { "value": 9.5, "want": 10 },
+    { "value": 10, "want": 10 },
+    { "value": 11, "want": 10 }
+  ],
+  "backoff": [
+    { "attempts": 0, "seconds": 30 },
+    { "attempts": 1, "seconds": 30 },
+    { "attempts": 2, "seconds": 60 },
+    { "attempts": 3, "seconds": 120 },
+    { "attempts": 7, "seconds": 1920 },
+    { "attempts": 8, "seconds": 3600 },
+    { "attempts": 40, "seconds": 3600 }
+  ]
+}

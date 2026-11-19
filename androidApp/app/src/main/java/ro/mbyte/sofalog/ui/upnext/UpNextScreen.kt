@@ -57,6 +57,7 @@ import ro.mbyte.sofalog.data.UpNextItem
 import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.ui.common.CenteredLoading
 import ro.mbyte.sofalog.ui.common.Poster
+import ro.mbyte.sofalog.ui.common.PosterBadge
 import ro.mbyte.sofalog.ui.common.WatchLogForm
 import ro.mbyte.sofalog.ui.common.attempt
 import ro.mbyte.sofalog.ui.common.episodeCode
@@ -71,6 +72,7 @@ import ro.mbyte.sofalog.ui.theme.AirsBadge
 import ro.mbyte.sofalog.ui.theme.FinaleBadge
 import ro.mbyte.sofalog.ui.theme.OnBadge
 import ro.mbyte.sofalog.ui.theme.SeasonPremiereBadge
+import ro.mbyte.sofalog.ui.theme.UserRatingBadge
 
 class UpNextViewModel(private val repo: VideoRepository) : ViewModel() {
     /** null while the first read is in flight. */
@@ -256,6 +258,26 @@ private fun UpNextCard(item: UpNextItem, onClick: () -> Unit, onLongClick: () ->
                         PosterTab(marker.label, background, last = true)
                     }
                 }
+            }
+            // The user's own rating, where the History card keeps it.
+            item.userRating?.let {
+                PosterBadge(
+                    it.toString(),
+                    UserRatingBadge,
+                    OnBadge,
+                    RoundedCornerShape(bottomStart = 6.dp),
+                    Modifier.align(Alignment.TopEnd),
+                )
+            }
+            // TMDB's score of the episode, where the History card keeps it.
+            item.score?.let {
+                PosterBadge(
+                    "♥ %.1f".format(it),
+                    Color.Black.copy(alpha = 0.6f),
+                    OnBadge,
+                    RoundedCornerShape(topStart = 6.dp),
+                    Modifier.align(Alignment.BottomEnd),
+                )
             }
         }
         // The episode alone, centered — the poster names the show, as on the web card.

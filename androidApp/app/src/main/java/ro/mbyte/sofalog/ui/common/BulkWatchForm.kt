@@ -1,6 +1,7 @@
 package ro.mbyte.sofalog.ui.common
 
 import androidx.compose.foundation.layout.Arrangement
+import ro.mbyte.sofalog.domain.UserZone
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,7 +33,6 @@ import ro.mbyte.sofalog.domain.wallTimeInstant
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalTime
-import java.time.ZoneId
 import java.time.temporal.ChronoUnit
 
 private enum class BulkWhen(val label: String) {
@@ -63,7 +63,7 @@ fun BulkWatchForm(
     note: String? = null,
     enabled: Boolean = true,
 ) {
-    val zone = remember { ZoneId.systemDefault() }
+    val zone = remember { UserZone.current }
     val opened = remember { Instant.now() }
     val today = remember { LocalDate.ofInstant(opened, zone) }
     val remaining = (aired - watched).coerceAtLeast(0)

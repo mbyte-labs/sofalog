@@ -9,6 +9,23 @@ data class TmdbGenre(val id: Long = 0, val name: String = "")
 @Serializable
 data class TmdbSearchPage(val results: List<TmdbSearchResult> = emptyList())
 
+/** One page of a trending or discover list: the search rows inside TMDB's paging envelope. */
+@Serializable
+data class TmdbListPage(
+    val page: Int = 1,
+    @SerialName("total_pages") val totalPages: Int = 1,
+    val results: List<TmdbSearchResult> = emptyList(),
+)
+
+@Serializable
+data class TmdbGenreList(val genres: List<TmdbGenre> = emptyList())
+
+@Serializable
+data class TmdbLanguage(
+    @SerialName("iso_639_1") val code: String = "",
+    @SerialName("english_name") val englishName: String = "",
+)
+
 @Serializable
 data class TmdbSearchResult(
     val id: Long,
@@ -19,6 +36,7 @@ data class TmdbSearchResult(
     @SerialName("first_air_date") val firstAirDate: String? = null,
     @SerialName("poster_path") val posterPath: String? = null,
     @SerialName("vote_average") val voteAverage: Double? = null,
+    val popularity: Double? = null,
     val overview: String? = null,
 )
 
@@ -83,3 +101,35 @@ data class TmdbEpisode(
 
 /** A parsed body together with the text it was parsed from, which is what gets stored. */
 data class Fetched<T>(val value: T, val body: String)
+
+// ---- the user's own account (D-029, D-036)
+
+@Serializable
+data class TmdbRequestToken(@SerialName("request_token") val requestToken: String)
+
+@Serializable
+data class TmdbSession(@SerialName("session_id") val sessionId: String)
+
+@Serializable
+data class TmdbAccount(val id: Long, val username: String = "")
+
+/** TMDB's own error body; `status_code` 7 is "invalid API key". */
+@Serializable
+data class TmdbStatus(@SerialName("status_code") val statusCode: Int? = null)
+
+/** One page of an account list. A rated entry carries `rating`; an episode its show and position. */
+@Serializable
+data class TmdbAccountPage(
+    val page: Int = 1,
+    @SerialName("total_pages") val totalPages: Int = 1,
+    val results: List<TmdbAccountEntry> = emptyList(),
+)
+
+@Serializable
+data class TmdbAccountEntry(
+    val id: Long = 0,
+    val rating: Double? = null,
+    @SerialName("show_id") val showId: Long? = null,
+    @SerialName("season_number") val seasonNumber: Int? = null,
+    @SerialName("episode_number") val episodeNumber: Int? = null,
+)
