@@ -166,6 +166,80 @@ data class LibraryMarkRow(
     val dropped: Boolean,
 )
 
+/**
+ * One watch as the Stats fold reads it (D-039): the log row with its movie's or its episode's
+ * facts carried along. [present] is false when the target row is gone.
+ */
+data class StatsPlayRow(
+    val id: Long,
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "target_id") val targetId: Long,
+    @ColumnInfo(name = "watched_at") val watchedAt: String,
+    @ColumnInfo(name = "movie_runtime") val movieRuntime: Int?,
+    @ColumnInfo(name = "movie_release") val movieRelease: String?,
+    @ColumnInfo(name = "movie_genres") val movieGenres: String?,
+    @ColumnInfo(name = "show_id") val showId: Long?,
+    @ColumnInfo(name = "season_number") val seasonNumber: Int?,
+    @ColumnInfo(name = "episode_number") val episodeNumber: Int?,
+    @ColumnInfo(name = "episode_runtime") val episodeRuntime: Int?,
+    @ColumnInfo(name = "show_first_air") val showFirstAir: String?,
+    @ColumnInfo(name = "show_genres") val showGenres: String?,
+    val present: Boolean,
+)
+
+/** One rating as the Stats fold reads it; [present] is false when what it rates is gone. */
+data class StatsRatingRow(
+    @ColumnInfo(name = "target_type") val targetType: String,
+    @ColumnInfo(name = "target_id") val targetId: Long,
+    val rating: Int,
+    @ColumnInfo(name = "updated_at") val updatedAt: String,
+    val present: Boolean,
+)
+
+/** A movie or a show as a Stats card names it. */
+data class StatsTitleRow(
+    val id: Long,
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    val title: String,
+    /** A movie's release date, a show's first air date. */
+    val date: String?,
+    @ColumnInfo(name = "poster_path") val posterPath: String?,
+    @ColumnInfo(name = "backdrop_path") val backdropPath: String?,
+)
+
+/** One title's stored TMDB body, for a read that wants only that. */
+data class TitleBodyRow(
+    val id: Long,
+    @ColumnInfo(name = "metadata_json") val metadataJson: String,
+)
+
+/*
+ * The Stats page's bulk read of the watch log. The log is the LEFT side, so nothing multiplies it:
+ * one row per watch. Each catalog join is guarded by its own target type (movie 5 and episode 5
+ * both exist). No period: the fold applies it, and a row whose target is gone stays in — flagged —
+ * because it still dates the first play.
+ */
+private const val STATS_PLAYS =
+    "SELECT w.id AS id, w.target_type AS target_type, w.target_id AS target_id, w.watched_at AS watched_at, " +
+        "m.runtime AS movie_runtime, m.release_date AS movie_release, m.genres AS movie_genres, " +
+        "e.show_id AS show_id, e.season_number AS season_number, e.episode_number AS episode_number, " +
+        "e.runtime AS episode_runtime, sh.first_air_date AS show_first_air, sh.genres AS show_genres, " +
+        "(m.id IS NOT NULL OR e.id IS NOT NULL) AS present " +
+        "FROM user_watch_history w " +
+        "LEFT JOIN movies m ON w.target_type = 'movie' AND m.id = w.target_id " +
+        "LEFT JOIN episodes e ON w.target_type = 'episode' AND e.id = w.target_id " +
+        "LEFT JOIN shows sh ON sh.id = e.show_id " +
+        "ORDER BY w.watched_at, w.id"
+
+/* Every rating of a movie, a show or an episode — a season is not rateable (D-020). */
+private const val STATS_RATINGS =
+    "SELECT r.target_type AS target_type, r.target_id AS target_id, r.rating AS rating, r.updated_at AS updated_at, " +
+        "((r.target_type = 'movie' AND EXISTS(SELECT 1 FROM movies m WHERE m.id = r.target_id)) " +
+        "OR (r.target_type = 'show' AND EXISTS(SELECT 1 FROM shows sh WHERE sh.id = r.target_id)) " +
+        "OR (r.target_type = 'episode' AND EXISTS(SELECT 1 FROM episodes e WHERE e.id = r.target_id))) AS present " +
+        "FROM user_video_ratings r " +
+        "ORDER BY r.updated_at, r.target_type, r.target_id"
+
 @Dao
 interface VideoDao {
     // ---- movies
@@ -454,6 +528,41 @@ interface VideoDao {
 
     @Query("DELETE FROM user_show_states WHERE show_id = :showId")
     suspend fun deleteShowState(showId: Long)
+
+    // ------------------------------------------------------------------ stats (D-039)
+    // The page's reads. Nothing here is filtered by period: the fold in `domain/Stats.kt` applies
+    // it, in the user's zone.
+
+    @Query(STATS_PLAYS)
+    fun observeStatsPlays(): Flow<List<StatsPlayRow>>
+
+    @Query(STATS_RATINGS)
+    fun observeStatsRatings(): Flow<List<StatsRatingRow>>
+
+    @Query("SELECT id, tmdb_id, title, release_date AS date, poster_path, backdrop_path FROM movies")
+    suspend fun statsMovieTitles(): List<StatsTitleRow>
+
+    @Query("SELECT id, tmdb_id, title, first_air_date AS date, poster_path, backdrop_path FROM shows")
+    suspend fun statsShowTitles(): List<StatsTitleRow>
+
+    /** The stored body of every movie the user rated: where its TMDB average and vote count are. */
+    @Query(
+        "SELECT m.id AS id, m.metadata_json AS metadata_json FROM movies m WHERE EXISTS(" +
+            "SELECT 1 FROM user_video_ratings r WHERE r.target_type = 'movie' AND r.target_id = m.id)",
+    )
+    suspend fun statsRatedMovieBodies(): List<TitleBodyRow>
+
+    /**
+     * The stored body of every show the user rated, or watched an episode of that has no runtime
+     * of its own — the two things the Stats fold reads a show body for.
+     */
+    @Query(
+        "SELECT sh.id AS id, sh.metadata_json AS metadata_json FROM shows sh WHERE EXISTS(" +
+            "SELECT 1 FROM user_video_ratings r WHERE r.target_type = 'show' AND r.target_id = sh.id) " +
+            "OR EXISTS(SELECT 1 FROM user_watch_history w JOIN episodes e ON e.id = w.target_id " +
+            "WHERE w.target_type = 'episode' AND e.show_id = sh.id AND e.runtime IS NULL)",
+    )
+    suspend fun statsShowBodies(): List<TitleBodyRow>
 
     // ------------------------------------------------------------------ delete data
 

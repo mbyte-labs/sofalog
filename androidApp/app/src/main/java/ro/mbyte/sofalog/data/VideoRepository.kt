@@ -9,6 +9,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
@@ -34,6 +35,8 @@ import ro.mbyte.sofalog.data.db.SettingEntity
 import ro.mbyte.sofalog.data.db.enqueue
 import ro.mbyte.sofalog.data.db.ShowEntity
 import ro.mbyte.sofalog.data.db.ShowStateEntity
+import ro.mbyte.sofalog.data.db.StatsPlayRow
+import ro.mbyte.sofalog.data.db.StatsTitleRow
 import ro.mbyte.sofalog.data.db.TARGET_EPISODE
 import ro.mbyte.sofalog.data.db.TARGET_MOVIE
 import ro.mbyte.sofalog.data.db.TARGET_SEASON
@@ -92,6 +95,20 @@ import ro.mbyte.sofalog.domain.LibraryMark
 import ro.mbyte.sofalog.domain.LibraryMarks
 import ro.mbyte.sofalog.domain.episodeMarker
 import ro.mbyte.sofalog.domain.upNextEpisode
+import ro.mbyte.sofalog.domain.STATS_MOVIE
+import ro.mbyte.sofalog.domain.STATS_SHOW
+import ro.mbyte.sofalog.domain.Stats
+import ro.mbyte.sofalog.domain.StatsCompletionRow
+import ro.mbyte.sofalog.domain.StatsInput
+import ro.mbyte.sofalog.domain.StatsPlay
+import ro.mbyte.sofalog.domain.StatsRating
+import ro.mbyte.sofalog.domain.StatsTitle
+import ro.mbyte.sofalog.domain.StatsTitleKey
+import ro.mbyte.sofalog.domain.computeStats
+import ro.mbyte.sofalog.domain.parseEpisodeRuntime
+import ro.mbyte.sofalog.domain.parseVoteFacts
+import ro.mbyte.sofalog.domain.splitGenres
+import ro.mbyte.sofalog.domain.statsYear
 import java.time.Duration
 import java.time.Instant
 
@@ -1125,6 +1142,59 @@ class VideoRepository(
     fun observeListSummaries(): Flow<List<Pair<ListKey, ListSummary>>> =
         combine(ListKey.entries.map { key -> observeList(key).map { key to summarize(it) } }) { it.toList() }
 
+    // ------------------------------------------------------------------ stats
+
+    /**
+     * The whole Stats page for one [period] (D-039) — null for the default, "all", or a four-digit
+     * year. Live: a watch, a rating or a drop anywhere re-emits. A pure local read: the log and
+     * the ratings are read whole and folded by [computeStats] in the user's zone, off the main
+     * thread; the stored TMDB bodies answer what TMDB's averages and regular runtimes are.
+     */
+    fun observeStats(period: String?): Flow<Stats> =
+        combine(
+            dao.observeStatsPlays(),
+            dao.observeStatsRatings(),
+            dao.observeShowStates(),
+        ) { plays, ratings, states ->
+            val reading = clock.read()
+            val titles = HashMap<StatsTitleKey, StatsTitle>()
+            dao.statsMovieTitles().forEach { titles[StatsTitleKey(STATS_MOVIE, it.id)] = it.toStatsTitle(STATS_MOVIE) }
+            dao.statsShowTitles().forEach { titles[StatsTitleKey(STATS_SHOW, it.id)] = it.toStatsTitle(STATS_SHOW) }
+
+            val showBodies = dao.statsShowBodies()
+            val votes = HashMap<StatsTitleKey, ro.mbyte.sofalog.domain.StatsVoteFacts>()
+            dao.statsRatedMovieBodies().forEach { row ->
+                parseVoteFacts(row.metadataJson)?.let { votes[StatsTitleKey(STATS_MOVIE, row.id)] = it }
+            }
+            showBodies.forEach { row ->
+                parseVoteFacts(row.metadataJson)?.let { votes[StatsTitleKey(STATS_SHOW, row.id)] = it }
+            }
+            val fallbacks = showBodies.mapNotNull { row -> parseEpisodeRuntime(row.metadataJson)?.let { row.id to it } }.toMap()
+
+            // Followed, non-dropped shows: progress is derived, as everywhere (D-010, D-012).
+            val followed = states.filter { ShowStatus.of(it.status) != ShowStatus.DROPPED }.map { it.showId }
+            val episodes = dao.episodesForShows(followed).groupBy { it.showId }
+            val watched = dao.allWatchedEpisodeIds().toSet()
+            val completion = followed.map { showId ->
+                val progress = showProgress(episodes[showId].orEmpty().map { it.ref() }, watched, reading.today)
+                StatsCompletionRow(showId, aired = progress.airedTotal, watched = progress.watched)
+            }
+
+            computeStats(
+                StatsInput(
+                    plays = plays.map { it.toStatsPlay() },
+                    ratings = ratings.map { StatsRating(it.targetType, it.targetId, it.rating, it.updatedAt, it.present) },
+                    titles = titles,
+                    showRuntimeFallback = fallbacks,
+                    voteFacts = votes,
+                    completion = completion,
+                ),
+                period,
+                Instant.parse(reading.now),
+                UserZone.current,
+            )
+        }.flowOn(Dispatchers.Default)
+
     // ------------------------------------------------------------------ the TMDB account's pull
     // (D-036). What the setup imports from the account lands through the ordinary tracking gate —
     // and is NEVER queued back: none of these calls `mirror`, so a pull cannot echo to TMDB.
@@ -1310,6 +1380,33 @@ class VideoRepository(
 }
 
 private fun EpisodeEntity.ref() = EpisodeRef(id, seasonNumber, episodeNumber, airDate)
+
+private fun StatsTitleRow.toStatsTitle(kind: String) = StatsTitle(
+    kind = kind,
+    id = id,
+    tmdbId = tmdbId,
+    title = title,
+    year = statsYear(date),
+    posterPath = posterPath.clean(),
+    backdropPath = backdropPath.clean(),
+)
+
+private fun StatsPlayRow.toStatsPlay() = StatsPlay(
+    id = id,
+    targetType = targetType,
+    targetId = targetId,
+    watchedAt = watchedAt,
+    movieRuntime = movieRuntime,
+    movieRelease = movieRelease,
+    movieGenres = splitGenres(movieGenres),
+    showId = showId,
+    season = seasonNumber,
+    number = episodeNumber,
+    episodeRuntime = episodeRuntime,
+    showFirstAir = showFirstAir,
+    showGenres = splitGenres(showGenres),
+    present = present,
+)
 
 private fun ListRow.toEntry() = ListEntry(
     kind = if (targetType == TARGET_MOVIE) ListItemKind.MOVIE else ListItemKind.SHOW,

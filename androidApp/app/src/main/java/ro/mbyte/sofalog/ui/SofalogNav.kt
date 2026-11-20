@@ -62,6 +62,7 @@ import ro.mbyte.sofalog.ui.settings.SettingsScreen
 import ro.mbyte.sofalog.ui.settings.TicketBoxRestoreScreen
 import ro.mbyte.sofalog.ui.settings.TmdbAccountScreen
 import ro.mbyte.sofalog.ui.settings.ZonePickerScreen
+import ro.mbyte.sofalog.ui.stats.StatsScreen
 import ro.mbyte.sofalog.ui.upnext.UpNextScreen
 
 private const val UP_NEXT = "upnext"
@@ -73,6 +74,7 @@ private val ListKey.route: String get() = "$LISTS/${name.lowercase()}"
 // About is a Settings sub-page: its route sits under "settings" so the drawer highlights Settings.
 private const val ABOUT = "settings/about"
 private const val DISCOVER = "discover"
+private const val STATS = "stats"
 private const val SETTINGS = "settings"
 private const val SETTINGS_ACCOUNT = "settings/account"
 private const val SETTINGS_ZONE = "settings/timezone"
@@ -108,7 +110,7 @@ fun SofalogNav() {
         drawerState = drawer,
         // The edge swipe opens the menu on the top-level screens only; a detail page keeps its
         // plain back gesture. An open drawer can always be swiped shut.
-        gesturesEnabled = route == UP_NEXT || route == HISTORY || route == LISTS || route == SEARCH || route == DISCOVER || route == SETTINGS || drawer.isOpen,
+        gesturesEnabled = route == UP_NEXT || route == HISTORY || route == LISTS || route == SEARCH || route == DISCOVER || route == STATS || route == SETTINGS || drawer.isOpen,
         drawerContent = {
             ModalDrawerSheet(Modifier.widthIn(max = 300.dp)) {
                 DrawerContent(
@@ -118,6 +120,7 @@ fun SofalogNav() {
                     onLists = { go { nav.topLevel(LISTS) } },
                     onSearch = { go { nav.topLevel(SEARCH) } },
                     onDiscover = { go { nav.topLevel(DISCOVER) } },
+                    onStats = { go { nav.topLevel(STATS) } },
                     onSettings = { go { nav.topLevel(SETTINGS) } },
                 )
             }
@@ -142,6 +145,15 @@ fun SofalogNav() {
                         nav.navigate(if (hit.kind == MediaKind.MOVIE) "movie/${hit.tmdbId}" else "show/${hit.tmdbId}")
                     },
                     onMenu = openMenu,
+                )
+            }
+            // The user's own numbers, folded on the device from its own database (D-039).
+            composable(STATS) {
+                StatsScreen(
+                    onMenu = openMenu,
+                    onOpenMovie = { id -> nav.navigate("movie/$id") },
+                    onOpenShow = { id -> nav.navigate("show/$id") },
+                    onDiscover = { nav.topLevel(DISCOVER) },
                 )
             }
             // Settings is a drawer root; its sub-pages are pushed above it. Every one carries the
@@ -307,6 +319,7 @@ private fun DrawerContent(
     onLists: () -> Unit,
     onSearch: () -> Unit,
     onDiscover: () -> Unit,
+    onStats: () -> Unit,
     onSettings: () -> Unit,
 ) {
     Column(Modifier.fillMaxHeight()) {
@@ -322,6 +335,7 @@ private fun DrawerContent(
             DrawerEntry("Lists", DetailIcons.Bookmark, route?.startsWith(LISTS) == true, onLists)
             DrawerEntry("Search", DetailIcons.Search, route == SEARCH, onSearch)
             DrawerEntry("Discover", DetailIcons.Trending, route == DISCOVER, onDiscover)
+            DrawerEntry("Stats", DetailIcons.Stats, route == STATS, onStats)
         }
         HorizontalDivider(
             Modifier.padding(horizontal = 24.dp, vertical = 8.dp),

@@ -1,0 +1,1871 @@
+{
+  "now": "2026-08-18T12:00:00Z",
+  "cases": [
+    {
+      "name": "default period is the current year; minutes from the movie, the episode, or the show's regular runtime",
+      "zone": "UTC",
+      "period": "",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "Alpha",
+          "release_date": "1994-05-01",
+          "runtime": 100,
+          "genres": ["Drama"]
+        },
+        {
+          "key": "m2",
+          "title": "Beta"
+        }
+      ],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Show",
+          "first_air_date": "2008-01-20",
+          "episode_run_time": 45,
+          "episodes": [
+            {
+              "key": "s1e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2008-01-20",
+              "runtime": 60
+            },
+            {
+              "key": "s1e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2008-01-27"
+            }
+          ]
+        }
+      ],
+      "plays": [
+        {
+          "target": "m1",
+          "at": "2025-12-31T23:59:59Z"
+        },
+        {
+          "target": "m1",
+          "at": "2026-03-01T20:00:00Z"
+        },
+        {
+          "target": "m1",
+          "at": "2026-03-02T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "at": "2026-03-03T20:00:00Z"
+        },
+        {
+          "target": "s1e1",
+          "at": "2026-03-04T20:00:00Z"
+        },
+        {
+          "target": "s1e2",
+          "at": "2026-03-05T20:00:00Z"
+        },
+        {
+          "target": "s1e2",
+          "at": "2026-03-06T20:00:00Z"
+        }
+      ],
+      "ratings": [],
+      "want": {
+        "period": "2026",
+        "years": [2026, 2025],
+        "today": "2026-08-18",
+        "headline": {
+          "episode_minutes": 150,
+          "episodes": 2,
+          "hours": 5,
+          "movie_minutes": 200,
+          "movies": 2,
+          "plays": 6
+        },
+        "most_watched_show": {
+          "last_played_at": "2026-03-06T20:00:00Z",
+          "minutes": 150,
+          "plays": 3,
+          "show": {
+            "kind": "show",
+            "title": "Show",
+            "year": 2008
+          }
+        },
+        "most_rewatched": [
+          {
+            "last_played_at": "2026-03-06T20:00:00Z",
+            "plays": 3,
+            "title": {
+              "kind": "show",
+              "title": "Show",
+              "year": 2008
+            }
+          },
+          {
+            "last_played_at": "2026-03-02T20:00:00Z",
+            "plays": 2,
+            "title": {
+              "kind": "movie",
+              "title": "Alpha",
+              "year": 1994
+            }
+          }
+        ],
+        "unrated_movies": {
+          "recent": [
+            {
+              "last_played_at": "2026-03-03T20:00:00Z",
+              "movie": {
+                "kind": "movie",
+                "title": "Beta",
+                "year": null
+              }
+            },
+            {
+              "last_played_at": "2026-03-02T20:00:00Z",
+              "movie": {
+                "kind": "movie",
+                "title": "Alpha",
+                "year": 1994
+              }
+            }
+          ],
+          "total": 2
+        },
+        "genres": {
+          "covered": 1,
+          "entries": [
+            {
+              "name": "Drama",
+              "titles": 1
+            }
+          ],
+          "total": 3
+        },
+        "completion": null,
+        "activity": {
+          "active_days": 6,
+          "tracking_days": null,
+          "current_streak": 0,
+          "longest_streak": 6,
+          "months": [
+            {
+              "month": "2026-01",
+              "plays": 0
+            },
+            {
+              "month": "2026-02",
+              "plays": 0
+            },
+            {
+              "month": "2026-03",
+              "plays": 6
+            },
+            {
+              "month": "2026-04",
+              "plays": 0
+            },
+            {
+              "month": "2026-05",
+              "plays": 0
+            },
+            {
+              "month": "2026-06",
+              "plays": 0
+            },
+            {
+              "month": "2026-07",
+              "plays": 0
+            },
+            {
+              "month": "2026-08",
+              "plays": 0
+            },
+            {
+              "month": "2026-09",
+              "plays": 0
+            },
+            {
+              "month": "2026-10",
+              "plays": 0
+            },
+            {
+              "month": "2026-11",
+              "plays": 0
+            },
+            {
+              "month": "2026-12",
+              "plays": 0
+            }
+          ],
+          "first_play": {
+            "episode": null,
+            "title": {
+              "kind": "movie",
+              "title": "Alpha",
+              "year": 1994
+            },
+            "watched_at": "2026-03-01T20:00:00Z"
+          }
+        }
+      },
+      "want_heatmap": {
+        "start": "2026-01-01",
+        "days": 365,
+        "cells": {
+          "2026-03-01": [1, 4],
+          "2026-03-02": [1, 4],
+          "2026-03-03": [1, 4],
+          "2026-03-04": [1, 4],
+          "2026-03-05": [1, 4],
+          "2026-03-06": [1, 4]
+        }
+      }
+    },
+    {
+      "name": "plays only in an earlier year fall back to all time; ratings never pick the year",
+      "zone": "UTC",
+      "period": "",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "Alpha",
+          "release_date": "1994-05-01",
+          "runtime": 90
+        },
+        {
+          "key": "m2",
+          "title": "Beta",
+          "release_date": "2001-01-01"
+        }
+      ],
+      "shows": [],
+      "plays": [
+        {
+          "target": "m1",
+          "at": "2024-11-08T20:00:00Z"
+        }
+      ],
+      "ratings": [
+        {
+          "target": "m2",
+          "rating": 7,
+          "at": "2026-02-01T10:00:00Z"
+        }
+      ],
+      "want": {
+        "period": "all",
+        "years": [2026, 2025, 2024],
+        "headline": {
+          "episode_minutes": 0,
+          "episodes": 0,
+          "hours": 1,
+          "movie_minutes": 90,
+          "movies": 1,
+          "plays": 1
+        },
+        "ratings": {
+          "average": 7,
+          "count": 1,
+          "distribution": [0, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+          "episodes_average": null,
+          "movies_average": 7,
+          "shows_average": null
+        },
+        "top_rated": [
+          {
+            "rated_at": "2026-02-01T10:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "Beta",
+              "year": 2001
+            }
+          }
+        ],
+        "rating_trend": {
+          "delta": null,
+          "verdict": null,
+          "recent": {
+            "average": null,
+            "count": 0
+          },
+          "earlier": {
+            "average": 7,
+            "count": 1
+          },
+          "reference_at": "2026-08-18T12:00:00Z"
+        },
+        "decades": {
+          "buckets": [
+            {
+              "decade": 1990,
+              "titles": 1
+            }
+          ],
+          "covered": 1,
+          "favorite": 1990,
+          "newest": null,
+          "oldest": {
+            "title": {
+              "kind": "movie",
+              "title": "Alpha",
+              "year": 1994
+            },
+            "year": 1994
+          },
+          "total": 1
+        },
+        "activity": {
+          "tracking_days": 648,
+          "current_streak": 0,
+          "active_days": null,
+          "time_of_day": {
+            "afternoon": 0,
+            "dominant": "evening",
+            "evening": 1,
+            "morning": 0,
+            "night": 0
+          }
+        }
+      }
+    },
+    {
+      "name": "a year nothing happened in is computed and empty",
+      "zone": "UTC",
+      "period": "2019",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "Alpha",
+          "release_date": "1994-05-01",
+          "runtime": 90
+        }
+      ],
+      "shows": [],
+      "plays": [
+        {
+          "target": "m1",
+          "at": "2026-08-10T20:00:00Z"
+        }
+      ],
+      "ratings": [],
+      "want": {
+        "completion": null,
+        "crowd": null,
+        "decades": null,
+        "genres": null,
+        "headline": {
+          "episode_minutes": 0,
+          "episodes": 0,
+          "hours": 0,
+          "movie_minutes": 0,
+          "movies": 0,
+          "plays": 0
+        },
+        "most_rewatched": [],
+        "most_watched_show": null,
+        "period": "2019",
+        "rating_trend": null,
+        "ratings": null,
+        "today": "2026-08-18",
+        "top_rated": [],
+        "unrated_movies": null,
+        "years": [2026],
+        "activity": {
+          "active_days": 0,
+          "current_streak": null,
+          "first_play": null,
+          "longest_streak": 0,
+          "months": [
+            {
+              "month": "2019-01",
+              "plays": 0
+            },
+            {
+              "month": "2019-02",
+              "plays": 0
+            },
+            {
+              "month": "2019-03",
+              "plays": 0
+            },
+            {
+              "month": "2019-04",
+              "plays": 0
+            },
+            {
+              "month": "2019-05",
+              "plays": 0
+            },
+            {
+              "month": "2019-06",
+              "plays": 0
+            },
+            {
+              "month": "2019-07",
+              "plays": 0
+            },
+            {
+              "month": "2019-08",
+              "plays": 0
+            },
+            {
+              "month": "2019-09",
+              "plays": 0
+            },
+            {
+              "month": "2019-10",
+              "plays": 0
+            },
+            {
+              "month": "2019-11",
+              "plays": 0
+            },
+            {
+              "month": "2019-12",
+              "plays": 0
+            }
+          ],
+          "time_of_day": null,
+          "tracking_days": null,
+          "weekday": [0, 0, 0, 0, 0, 0, 0]
+        }
+      },
+      "want_heatmap": {
+        "start": "2019-01-01",
+        "days": 365,
+        "cells": {}
+      }
+    },
+    {
+      "name": "activity is bucketed in the user's zone: local days, weekdays, exact local midnight left out, a streak ending yesterday",
+      "zone": "Europe/Bucharest",
+      "now": "2026-08-18T22:30:00Z",
+      "period": "all",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "Alpha",
+          "release_date": "1994-05-01",
+          "runtime": 100
+        },
+        {
+          "key": "m2",
+          "title": "Beta",
+          "release_date": "2010-07-16",
+          "runtime": 120
+        }
+      ],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Show",
+          "first_air_date": "2008-01-20",
+          "episodes": [
+            {
+              "key": "s1e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2008-01-20",
+              "runtime": 50
+            },
+            {
+              "key": "s1e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2008-01-27",
+              "runtime": 50
+            }
+          ]
+        }
+      ],
+      "plays": [
+        {
+          "target": "s1e1",
+          "at": "2026-08-07T21:00:00Z"
+        },
+        {
+          "target": "m1",
+          "at": "2026-08-15T21:30:00Z"
+        },
+        {
+          "target": "s1e2",
+          "at": "2026-08-16T21:00:00Z"
+        },
+        {
+          "target": "m2",
+          "at": "2026-08-17T04:00:00Z"
+        },
+        {
+          "target": "m2",
+          "at": "2026-08-17T10:00:00Z"
+        },
+        {
+          "target": "m1",
+          "at": "2026-08-17T15:00:00Z"
+        },
+        {
+          "target": "m1",
+          "at": "2026-08-17T21:00:00Z"
+        }
+      ],
+      "ratings": [],
+      "want": {
+        "period": "all",
+        "today": "2026-08-19",
+        "headline": {
+          "episode_minutes": 100,
+          "episodes": 2,
+          "hours": 10,
+          "movie_minutes": 540,
+          "movies": 2,
+          "plays": 7
+        },
+        "most_rewatched": [
+          {
+            "last_played_at": "2026-08-17T21:00:00Z",
+            "plays": 3,
+            "title": {
+              "kind": "movie",
+              "title": "Alpha",
+              "year": 1994
+            }
+          },
+          {
+            "last_played_at": "2026-08-17T10:00:00Z",
+            "plays": 2,
+            "title": {
+              "kind": "movie",
+              "title": "Beta",
+              "year": 2010
+            }
+          },
+          {
+            "last_played_at": "2026-08-16T21:00:00Z",
+            "plays": 2,
+            "title": {
+              "kind": "show",
+              "title": "Show",
+              "year": 2008
+            }
+          }
+        ],
+        "most_watched_show": {
+          "last_played_at": "2026-08-16T21:00:00Z",
+          "minutes": 100,
+          "plays": 2,
+          "show": {
+            "kind": "show",
+            "title": "Show",
+            "year": 2008
+          }
+        },
+        "activity": {
+          "active_days": null,
+          "current_streak": 3,
+          "first_play": {
+            "episode": {
+              "number": 1,
+              "season": 1
+            },
+            "title": {
+              "kind": "show",
+              "title": "Show",
+              "year": 2008
+            },
+            "watched_at": "2026-08-07T21:00:00Z"
+          },
+          "longest_streak": 3,
+          "months": [
+            {
+              "month": "2025-09",
+              "plays": 0
+            },
+            {
+              "month": "2025-10",
+              "plays": 0
+            },
+            {
+              "month": "2025-11",
+              "plays": 0
+            },
+            {
+              "month": "2025-12",
+              "plays": 0
+            },
+            {
+              "month": "2026-01",
+              "plays": 0
+            },
+            {
+              "month": "2026-02",
+              "plays": 0
+            },
+            {
+              "month": "2026-03",
+              "plays": 0
+            },
+            {
+              "month": "2026-04",
+              "plays": 0
+            },
+            {
+              "month": "2026-05",
+              "plays": 0
+            },
+            {
+              "month": "2026-06",
+              "plays": 0
+            },
+            {
+              "month": "2026-07",
+              "plays": 0
+            },
+            {
+              "month": "2026-08",
+              "plays": 7
+            }
+          ],
+          "time_of_day": {
+            "afternoon": 1,
+            "dominant": "morning",
+            "evening": 1,
+            "morning": 1,
+            "night": 1
+          },
+          "tracking_days": 11,
+          "weekday": [4, 1, 0, 0, 0, 1, 1]
+        }
+      },
+      "want_heatmap": {
+        "start": "2025-08-20",
+        "days": 365,
+        "cells": {
+          "2026-08-08": [1, 1],
+          "2026-08-16": [1, 1],
+          "2026-08-17": [4, 4],
+          "2026-08-18": [1, 1]
+        }
+      }
+    },
+    {
+      "name": "ratings: distribution, per-kind means, highest rated, and a trend delta rounded before its verdict",
+      "zone": "UTC",
+      "period": "all",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "M1"
+        },
+        {
+          "key": "m2",
+          "title": "M2"
+        },
+        {
+          "key": "m3",
+          "title": "M3"
+        },
+        {
+          "key": "m4",
+          "title": "M4"
+        },
+        {
+          "key": "m5",
+          "title": "M5"
+        },
+        {
+          "key": "m6",
+          "title": "M6"
+        }
+      ],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Show",
+          "episodes": [
+            {
+              "key": "s1e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2020-01-01"
+            }
+          ]
+        }
+      ],
+      "plays": [],
+      "ratings": [
+        {
+          "target": "m1",
+          "rating": 6,
+          "at": "2026-01-10T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "rating": 7,
+          "at": "2026-02-10T20:00:00Z"
+        },
+        {
+          "target": "m3",
+          "rating": 7,
+          "at": "2026-03-10T20:00:00Z"
+        },
+        {
+          "target": "m4",
+          "rating": 7,
+          "at": "2026-04-10T20:00:00Z"
+        },
+        {
+          "target": "m5",
+          "rating": 7,
+          "at": "2026-07-01T20:00:00Z"
+        },
+        {
+          "target": "m6",
+          "rating": 7,
+          "at": "2026-07-02T20:00:00Z"
+        },
+        {
+          "target": "s1",
+          "rating": 7,
+          "at": "2026-07-02T20:00:00Z"
+        },
+        {
+          "target": "s1e1",
+          "rating": 10,
+          "at": "2026-07-03T20:00:00Z"
+        }
+      ],
+      "want": {
+        "ratings": {
+          "average": 7.25,
+          "count": 8,
+          "distribution": [0, 0, 0, 0, 0, 1, 6, 0, 0, 1],
+          "episodes_average": 10,
+          "movies_average": 6.833333333333333,
+          "shows_average": 7
+        },
+        "top_rated": [
+          {
+            "rated_at": "2026-07-02T20:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "M6",
+              "year": null
+            }
+          },
+          {
+            "rated_at": "2026-07-02T20:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "show",
+              "title": "Show",
+              "year": null
+            }
+          },
+          {
+            "rated_at": "2026-07-01T20:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "M5",
+              "year": null
+            }
+          },
+          {
+            "rated_at": "2026-04-10T20:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "M4",
+              "year": null
+            }
+          },
+          {
+            "rated_at": "2026-03-10T20:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "M3",
+              "year": null
+            }
+          },
+          {
+            "rated_at": "2026-02-10T20:00:00Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "M2",
+              "year": null
+            }
+          },
+          {
+            "rated_at": "2026-01-10T20:00:00Z",
+            "rating": 6,
+            "title": {
+              "kind": "movie",
+              "title": "M1",
+              "year": null
+            }
+          }
+        ],
+        "rating_trend": {
+          "delta": 0.3,
+          "earlier": {
+            "average": 6.75,
+            "count": 4
+          },
+          "months": [
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-09"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-10"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-11"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-12"
+            },
+            {
+              "average": 6,
+              "count": 1,
+              "month": "2026-01"
+            },
+            {
+              "average": 7,
+              "count": 1,
+              "month": "2026-02"
+            },
+            {
+              "average": 7,
+              "count": 1,
+              "month": "2026-03"
+            },
+            {
+              "average": 7,
+              "count": 1,
+              "month": "2026-04"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2026-05"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2026-06"
+            },
+            {
+              "average": 7,
+              "count": 3,
+              "month": "2026-07"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2026-08"
+            }
+          ],
+          "recent": {
+            "average": 7,
+            "count": 3
+          },
+          "reference_at": "2026-08-18T12:00:00Z",
+          "verdict": "kinder"
+        }
+      }
+    },
+    {
+      "name": "you vs the crowd: only titles with 50 votes compare, largest gaps first, an exact match in neither list",
+      "zone": "UTC",
+      "period": "all",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "Loved",
+          "release_date": "1999-03-30",
+          "vote_average": 6.0,
+          "vote_count": 500
+        },
+        {
+          "key": "m2",
+          "title": "Liked",
+          "release_date": "2001-01-01",
+          "vote_average": 7.5,
+          "vote_count": 900
+        },
+        {
+          "key": "m3",
+          "title": "Even",
+          "release_date": "2002-01-01",
+          "vote_average": 8.0,
+          "vote_count": 300
+        },
+        {
+          "key": "m4",
+          "title": "Disliked",
+          "release_date": "2003-01-01",
+          "vote_average": 8.4,
+          "vote_count": 2000
+        },
+        {
+          "key": "m5",
+          "title": "Obscure",
+          "release_date": "2004-01-01",
+          "vote_average": 2.0,
+          "vote_count": 49
+        },
+        {
+          "key": "m6",
+          "title": "Unknown",
+          "release_date": "2005-01-01"
+        }
+      ],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Series",
+          "first_air_date": "2010-01-01",
+          "vote_average": 9.0,
+          "vote_count": 50,
+          "episodes": []
+        }
+      ],
+      "plays": [],
+      "ratings": [
+        {
+          "target": "m1",
+          "rating": 10,
+          "at": "2026-05-01T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "rating": 8,
+          "at": "2026-05-02T20:00:00Z"
+        },
+        {
+          "target": "m3",
+          "rating": 8,
+          "at": "2026-05-03T20:00:00Z"
+        },
+        {
+          "target": "m4",
+          "rating": 5,
+          "at": "2026-05-04T20:00:00Z"
+        },
+        {
+          "target": "m5",
+          "rating": 10,
+          "at": "2026-05-05T20:00:00Z"
+        },
+        {
+          "target": "m6",
+          "rating": 9,
+          "at": "2026-05-06T20:00:00Z"
+        },
+        {
+          "target": "s1",
+          "rating": 7,
+          "at": "2026-05-07T20:00:00Z"
+        }
+      ],
+      "want": {
+        "crowd": {
+          "compared": 5,
+          "crowd_average": 7.779999999999999,
+          "delta": -0.17999999999999972,
+          "loved_less": [
+            {
+              "gap": -3.4000000000000004,
+              "title": {
+                "kind": "movie",
+                "title": "Disliked",
+                "year": 2003
+              },
+              "tmdb_average": 8.4,
+              "tmdb_votes": 2000,
+              "user_rating": 5
+            },
+            {
+              "gap": -2,
+              "title": {
+                "kind": "show",
+                "title": "Series",
+                "year": 2010
+              },
+              "tmdb_average": 9,
+              "tmdb_votes": 50,
+              "user_rating": 7
+            }
+          ],
+          "loved_more": [
+            {
+              "gap": 4,
+              "title": {
+                "kind": "movie",
+                "title": "Loved",
+                "year": 1999
+              },
+              "tmdb_average": 6,
+              "tmdb_votes": 500,
+              "user_rating": 10
+            },
+            {
+              "gap": 0.5,
+              "title": {
+                "kind": "movie",
+                "title": "Liked",
+                "year": 2001
+              },
+              "tmdb_average": 7.5,
+              "tmdb_votes": 900,
+              "user_rating": 8
+            }
+          ],
+          "total_rated": 7,
+          "user_average": 7.6,
+          "verdict": "in_sync"
+        }
+      }
+    },
+    {
+      "name": "titles: contiguous decades with a tie to the newer one, rewatches summed per show, unrated movies, genres once per title",
+      "zone": "UTC",
+      "period": "all",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "Old",
+          "release_date": "1968-04-02",
+          "genres": ["Drama", "Sci-Fi", "Drama"]
+        },
+        {
+          "key": "m2",
+          "title": "Nineties",
+          "release_date": "1994-05-01",
+          "genres": ["Drama", "Crime"]
+        },
+        {
+          "key": "m3",
+          "title": "Undated",
+          "genres": []
+        },
+        {
+          "key": "m4",
+          "title": "Recent",
+          "release_date": "2021-10-22",
+          "genres": ["Sci-Fi"]
+        }
+      ],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Series",
+          "first_air_date": "1999-01-10",
+          "genres": ["Crime", "Drama"],
+          "episodes": [
+            {
+              "key": "s1e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "1999-01-10"
+            },
+            {
+              "key": "s1e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "1999-01-17"
+            },
+            {
+              "key": "s1e3",
+              "season": 1,
+              "number": 3,
+              "air_date": "1999-01-24"
+            }
+          ]
+        },
+        {
+          "key": "s2",
+          "title": "Newer",
+          "first_air_date": "2022-02-18",
+          "episodes": [
+            {
+              "key": "s2e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2022-02-18"
+            }
+          ]
+        }
+      ],
+      "plays": [
+        {
+          "target": "m1",
+          "at": "2026-06-01T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "at": "2026-06-02T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "at": "2026-06-03T20:00:00Z"
+        },
+        {
+          "target": "m3",
+          "at": "2026-06-04T20:00:00Z"
+        },
+        {
+          "target": "m4",
+          "at": "2026-06-05T20:00:00Z"
+        },
+        {
+          "target": "s1e1",
+          "at": "2026-06-06T20:00:00Z"
+        },
+        {
+          "target": "s1e2",
+          "at": "2026-06-07T20:00:00Z"
+        },
+        {
+          "target": "s1e3",
+          "at": "2026-06-08T20:00:00Z"
+        },
+        {
+          "target": "s2e1",
+          "at": "2026-06-09T20:00:00Z"
+        }
+      ],
+      "ratings": [
+        {
+          "target": "m2",
+          "rating": 9,
+          "at": "2026-06-03T21:00:00Z"
+        }
+      ],
+      "want": {
+        "headline": {
+          "episode_minutes": 0,
+          "episodes": 4,
+          "hours": 0,
+          "movie_minutes": 0,
+          "movies": 4,
+          "plays": 9
+        },
+        "most_watched_show": {
+          "last_played_at": "2026-06-08T20:00:00Z",
+          "minutes": 0,
+          "plays": 3,
+          "show": {
+            "kind": "show",
+            "title": "Series",
+            "year": 1999
+          }
+        },
+        "decades": {
+          "buckets": [
+            {
+              "decade": 1960,
+              "titles": 1
+            },
+            {
+              "decade": 1970,
+              "titles": 0
+            },
+            {
+              "decade": 1980,
+              "titles": 0
+            },
+            {
+              "decade": 1990,
+              "titles": 2
+            },
+            {
+              "decade": 2000,
+              "titles": 0
+            },
+            {
+              "decade": 2010,
+              "titles": 0
+            },
+            {
+              "decade": 2020,
+              "titles": 2
+            }
+          ],
+          "covered": 5,
+          "favorite": 2020,
+          "newest": {
+            "title": {
+              "kind": "show",
+              "title": "Newer",
+              "year": 2022
+            },
+            "year": 2022
+          },
+          "oldest": {
+            "title": {
+              "kind": "movie",
+              "title": "Old",
+              "year": 1968
+            },
+            "year": 1968
+          },
+          "total": 6
+        },
+        "most_rewatched": [
+          {
+            "last_played_at": "2026-06-08T20:00:00Z",
+            "plays": 3,
+            "title": {
+              "kind": "show",
+              "title": "Series",
+              "year": 1999
+            }
+          },
+          {
+            "last_played_at": "2026-06-03T20:00:00Z",
+            "plays": 2,
+            "title": {
+              "kind": "movie",
+              "title": "Nineties",
+              "year": 1994
+            }
+          }
+        ],
+        "unrated_movies": {
+          "recent": [
+            {
+              "last_played_at": "2026-06-05T20:00:00Z",
+              "movie": {
+                "kind": "movie",
+                "title": "Recent",
+                "year": 2021
+              }
+            },
+            {
+              "last_played_at": "2026-06-04T20:00:00Z",
+              "movie": {
+                "kind": "movie",
+                "title": "Undated",
+                "year": null
+              }
+            },
+            {
+              "last_played_at": "2026-06-01T20:00:00Z",
+              "movie": {
+                "kind": "movie",
+                "title": "Old",
+                "year": 1968
+              }
+            }
+          ],
+          "total": 3
+        },
+        "genres": {
+          "covered": 4,
+          "entries": [
+            {
+              "name": "Drama",
+              "titles": 3
+            },
+            {
+              "name": "Crime",
+              "titles": 2
+            },
+            {
+              "name": "Sci-Fi",
+              "titles": 2
+            }
+          ],
+          "total": 6
+        }
+      }
+    },
+    {
+      "name": "completion: dropped shows left out, a show with nothing aired tracked but not averaged, the closest to done first",
+      "zone": "UTC",
+      "period": "all",
+      "movies": [],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Finished",
+          "status": "watched",
+          "episodes": [
+            {
+              "key": "s1e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2020-01-01"
+            },
+            {
+              "key": "s1e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2020-01-08"
+            },
+            {
+              "key": "s1e0",
+              "season": 0,
+              "number": 1,
+              "air_date": "2020-02-01"
+            }
+          ]
+        },
+        {
+          "key": "s2",
+          "title": "Two left",
+          "status": "watching",
+          "episodes": [
+            {
+              "key": "s2e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2021-01-01"
+            },
+            {
+              "key": "s2e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2021-01-08"
+            },
+            {
+              "key": "s2e3",
+              "season": 1,
+              "number": 3,
+              "air_date": "2021-01-15"
+            },
+            {
+              "key": "s2e4",
+              "season": 1,
+              "number": 4,
+              "air_date": "2021-01-22"
+            },
+            {
+              "key": "s2e5",
+              "season": 1,
+              "number": 5,
+              "air_date": "2026-12-01"
+            }
+          ]
+        },
+        {
+          "key": "s3",
+          "title": "One left",
+          "status": "watching",
+          "episodes": [
+            {
+              "key": "s3e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2022-01-01"
+            },
+            {
+              "key": "s3e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2022-01-08"
+            }
+          ]
+        },
+        {
+          "key": "s4",
+          "title": "Dropped",
+          "status": "dropped",
+          "episodes": [
+            {
+              "key": "s4e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2023-01-01"
+            },
+            {
+              "key": "s4e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2023-01-08"
+            }
+          ]
+        },
+        {
+          "key": "s5",
+          "title": "Unaired",
+          "status": "watching",
+          "episodes": [
+            {
+              "key": "s5e1",
+              "season": 1,
+              "number": 1
+            },
+            {
+              "key": "s5e0",
+              "season": 0,
+              "number": 1,
+              "air_date": "2024-01-01"
+            }
+          ]
+        }
+      ],
+      "plays": [
+        {
+          "target": "s1e1",
+          "at": "2026-07-01T20:00:00Z"
+        },
+        {
+          "target": "s1e2",
+          "at": "2026-07-02T20:00:00Z"
+        },
+        {
+          "target": "s1e2",
+          "at": "2026-07-03T20:00:00Z"
+        },
+        {
+          "target": "s2e1",
+          "at": "2026-07-04T20:00:00Z"
+        },
+        {
+          "target": "s2e2",
+          "at": "2026-07-05T20:00:00Z"
+        },
+        {
+          "target": "s3e1",
+          "at": "2026-07-06T20:00:00Z"
+        },
+        {
+          "target": "s4e1",
+          "at": "2026-07-07T20:00:00Z"
+        },
+        {
+          "target": "s5e0",
+          "at": "2026-07-08T20:00:00Z"
+        }
+      ],
+      "ratings": [],
+      "want": {
+        "completion": {
+          "almost_there": [
+            {
+              "aired": 2,
+              "left": 1,
+              "show": {
+                "kind": "show",
+                "title": "One left",
+                "year": null
+              },
+              "watched": 1
+            },
+            {
+              "aired": 4,
+              "left": 2,
+              "show": {
+                "kind": "show",
+                "title": "Two left",
+                "year": null
+              },
+              "watched": 2
+            }
+          ],
+          "average_completion": 0.6666666666666666,
+          "completed": 1,
+          "in_progress": 3,
+          "tracked": 4
+        },
+        "most_rewatched": [
+          {
+            "last_played_at": "2026-07-03T20:00:00Z",
+            "plays": 3,
+            "title": {
+              "kind": "show",
+              "title": "Finished",
+              "year": null
+            }
+          },
+          {
+            "last_played_at": "2026-07-05T20:00:00Z",
+            "plays": 2,
+            "title": {
+              "kind": "show",
+              "title": "Two left",
+              "year": null
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "a past year: no current streak, no completion, the trend's recent window ends with the year",
+      "zone": "UTC",
+      "period": "2025",
+      "movies": [
+        {
+          "key": "m1",
+          "title": "M1",
+          "release_date": "2000-01-01",
+          "runtime": 90
+        },
+        {
+          "key": "m2",
+          "title": "M2",
+          "release_date": "2001-01-01",
+          "runtime": 90
+        },
+        {
+          "key": "m3",
+          "title": "M3",
+          "release_date": "2002-01-01",
+          "runtime": 90
+        },
+        {
+          "key": "m4",
+          "title": "M4",
+          "release_date": "2003-01-01",
+          "runtime": 90
+        },
+        {
+          "key": "m5",
+          "title": "M5",
+          "release_date": "2004-01-01",
+          "runtime": 90
+        },
+        {
+          "key": "m6",
+          "title": "M6",
+          "release_date": "2005-01-01",
+          "runtime": 90
+        },
+        {
+          "key": "m7",
+          "title": "M7",
+          "release_date": "2006-01-01",
+          "runtime": 90
+        }
+      ],
+      "shows": [
+        {
+          "key": "s1",
+          "title": "Show",
+          "status": "watching",
+          "episodes": [
+            {
+              "key": "s1e1",
+              "season": 1,
+              "number": 1,
+              "air_date": "2020-01-01"
+            },
+            {
+              "key": "s1e2",
+              "season": 1,
+              "number": 2,
+              "air_date": "2020-01-08"
+            }
+          ]
+        }
+      ],
+      "plays": [
+        {
+          "target": "m1",
+          "at": "2025-12-30T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "at": "2025-12-31T20:00:00Z"
+        },
+        {
+          "target": "s1e1",
+          "at": "2025-12-31T23:59:59Z"
+        },
+        {
+          "target": "m3",
+          "at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "ratings": [
+        {
+          "target": "m1",
+          "rating": 9,
+          "at": "2025-02-01T20:00:00Z"
+        },
+        {
+          "target": "m2",
+          "rating": 9,
+          "at": "2025-03-01T20:00:00Z"
+        },
+        {
+          "target": "m3",
+          "rating": 8,
+          "at": "2025-10-02T20:00:00Z"
+        },
+        {
+          "target": "m4",
+          "rating": 6,
+          "at": "2025-10-03T00:00:00Z"
+        },
+        {
+          "target": "m5",
+          "rating": 6,
+          "at": "2025-11-01T20:00:00Z"
+        },
+        {
+          "target": "m6",
+          "rating": 7,
+          "at": "2025-12-31T23:59:59Z"
+        },
+        {
+          "target": "m7",
+          "rating": 1,
+          "at": "2026-01-01T00:00:00Z"
+        }
+      ],
+      "want": {
+        "period": "2025",
+        "years": [2026, 2025],
+        "completion": null,
+        "headline": {
+          "episode_minutes": 0,
+          "episodes": 1,
+          "hours": 3,
+          "movie_minutes": 180,
+          "movies": 2,
+          "plays": 3
+        },
+        "ratings": {
+          "average": 7.5,
+          "count": 6,
+          "distribution": [0, 0, 0, 0, 0, 2, 1, 1, 2, 0],
+          "episodes_average": null,
+          "movies_average": 7.5,
+          "shows_average": null
+        },
+        "top_rated": [
+          {
+            "rated_at": "2025-03-01T20:00:00Z",
+            "rating": 9,
+            "title": {
+              "kind": "movie",
+              "title": "M2",
+              "year": 2001
+            }
+          },
+          {
+            "rated_at": "2025-02-01T20:00:00Z",
+            "rating": 9,
+            "title": {
+              "kind": "movie",
+              "title": "M1",
+              "year": 2000
+            }
+          },
+          {
+            "rated_at": "2025-10-02T20:00:00Z",
+            "rating": 8,
+            "title": {
+              "kind": "movie",
+              "title": "M3",
+              "year": 2002
+            }
+          },
+          {
+            "rated_at": "2025-12-31T23:59:59Z",
+            "rating": 7,
+            "title": {
+              "kind": "movie",
+              "title": "M6",
+              "year": 2005
+            }
+          },
+          {
+            "rated_at": "2025-11-01T20:00:00Z",
+            "rating": 6,
+            "title": {
+              "kind": "movie",
+              "title": "M5",
+              "year": 2004
+            }
+          },
+          {
+            "rated_at": "2025-10-03T00:00:00Z",
+            "rating": 6,
+            "title": {
+              "kind": "movie",
+              "title": "M4",
+              "year": 2003
+            }
+          }
+        ],
+        "rating_trend": {
+          "delta": -2.3,
+          "earlier": {
+            "average": 8.666666666666666,
+            "count": 3
+          },
+          "months": [
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-01"
+            },
+            {
+              "average": 9,
+              "count": 1,
+              "month": "2025-02"
+            },
+            {
+              "average": 9,
+              "count": 1,
+              "month": "2025-03"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-04"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-05"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-06"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-07"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-08"
+            },
+            {
+              "average": null,
+              "count": 0,
+              "month": "2025-09"
+            },
+            {
+              "average": 7,
+              "count": 2,
+              "month": "2025-10"
+            },
+            {
+              "average": 6,
+              "count": 1,
+              "month": "2025-11"
+            },
+            {
+              "average": 7,
+              "count": 1,
+              "month": "2025-12"
+            }
+          ],
+          "recent": {
+            "average": 6.333333333333333,
+            "count": 3
+          },
+          "reference_at": "2026-01-01T00:00:00Z",
+          "verdict": "harsher"
+        },
+        "unrated_movies": null,
+        "activity": {
+          "active_days": 2,
+          "current_streak": null,
+          "first_play": {
+            "episode": null,
+            "title": {
+              "kind": "movie",
+              "title": "M1",
+              "year": 2000
+            },
+            "watched_at": "2025-12-30T20:00:00Z"
+          },
+          "longest_streak": 2,
+          "months": [
+            {
+              "month": "2025-01",
+              "plays": 0
+            },
+            {
+              "month": "2025-02",
+              "plays": 0
+            },
+            {
+              "month": "2025-03",
+              "plays": 0
+            },
+            {
+              "month": "2025-04",
+              "plays": 0
+            },
+            {
+              "month": "2025-05",
+              "plays": 0
+            },
+            {
+              "month": "2025-06",
+              "plays": 0
+            },
+            {
+              "month": "2025-07",
+              "plays": 0
+            },
+            {
+              "month": "2025-08",
+              "plays": 0
+            },
+            {
+              "month": "2025-09",
+              "plays": 0
+            },
+            {
+              "month": "2025-10",
+              "plays": 0
+            },
+            {
+              "month": "2025-11",
+              "plays": 0
+            },
+            {
+              "month": "2025-12",
+              "plays": 3
+            }
+          ],
+          "time_of_day": {
+            "afternoon": 0,
+            "dominant": "evening",
+            "evening": 2,
+            "morning": 0,
+            "night": 1
+          },
+          "tracking_days": null,
+          "weekday": [0, 1, 2, 0, 0, 0, 0]
+        }
+      },
+      "want_heatmap": {
+        "start": "2025-01-01",
+        "days": 365,
+        "cells": {
+          "2025-12-30": [1, 1],
+          "2025-12-31": [2, 4]
+        }
+      }
+    }
+  ]
+}

@@ -16,7 +16,15 @@ are the cases **both** test suites run, so a rule changed on one side fails the 
   order) and which movie and show groups remain, and the hint an unresolved episode gets from the
   numbers held for its season.
 
+- `stats.json` — the Stats page's fold (D-039): a small library (movies, shows with their
+  episodes and state, plays, ratings), a zone, a clock and a period in; the sections the case cares
+  about out, as the page's own JSON. The comparison is a **subset** — only the keys a case names —
+  with a title compared by kind, name and year (ids are local to each side) and the year-long
+  heatmap stated as its non-empty days (`want_heatmap`: day → `[plays, level]`). The expected
+  values are the server's answers; the Kotlin port must reproduce them.
+
 Every case is evaluated with `today` as the user's day. Go: `status_fixtures_test.go` in
 `video/common` and `fixtures_test.go` in `video/upnext`. Kotlin: `RuleFixturesTest`. The TMDB and
 Ticket Box cases: `rule_fixtures_test.go` in `video/tmdbaccount` and `ticketbox_fixtures_test.go`
-in `video/restore`; Kotlin: `TmdbSyncTest` and `TicketBoxRestoreTest`.
+in `video/restore`; Kotlin: `TmdbSyncTest` and `TicketBoxRestoreTest`. The Stats cases:
+`stats_fixtures_test.go` in `video/stats`; Kotlin: `StatsFixturesTest`.

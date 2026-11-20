@@ -92,7 +92,7 @@ fun RatingBar(value: Int?, onChange: (Int?) -> Unit, modifier: Modifier = Modifi
 
 /** The web's `ratingColor` ramp: red 1–3, yellow 4–5, muted blue 6–7, the accent 8–9, green 10. */
 @Composable
-private fun ratingColor(value: Int): Color = when {
+internal fun ratingColor(value: Int): Color = when {
     value >= 10 -> Color(0xFF3FB760)
     value >= 8 -> MaterialTheme.colorScheme.primary
     value >= 6 -> Color(0xFF6C8CD5)

@@ -819,7 +819,12 @@ out listed and disabled until linking exists. **The Discover page is built** (`u
 drawer entry "Discover"): D-034's subset — the weekly Trending list and the Popular list
 (`/discover/*` by popularity, filtered by a minimum TMDB score (default 5.5), original language and genres), one
 All / Movies / Shows filter over both, live on every view and never stored; the rules are
-`domain/Discover.kt`, and the card is `ui/common/TitleCard.kt`, shared with Search. **The Lists hub is built** (`ui/lists/`, drawer
+`domain/Discover.kt`, and the card is `ui/common/TitleCard.kt`, shared with Search. **The Stats page is built** (`ui/stats/`, drawer entry "Stats"): D-039 on
+the device — every section of the web page, for all time or one year in the user's zone, folded by
+`computeStats` in `domain/Stats.kt` (a port of the server's `features/video/stats`; change one,
+change the other and `fixtures/video-rules/stats.json`) from `VideoRepository.observeStats`' whole
+read of the log and the ratings — live, never stored, never a provider call; its charts are drawn
+in Compose (no chart dependency) and `domain/StatsLabels.kt` holds the web page's copy. **The Lists hub is built** (`ui/lists/`, drawer
 entry "Lists"): one poster-fan card per list — Watchlist, Favorites, Dropped — and one page per list,
 each list read whole from Room and ordered and filtered in Kotlin by `domain/ListOrder.kt`
 (`orderList` is the server's list ordering; `summarize` its hub counts, plus the newest five POSTERS for the card's fan — deliberately not the web hub's backdrop pick). **The TMDB account link and the Ticket Box restore
@@ -843,7 +848,8 @@ episode of its own: its still is the hero, its copies and streaming are the seas
 show's, read-only, and it rates and logs the episode itself); what is and is not
 there yet is listed in `androidApp/README.md`. The shared cases live in `fixtures/video-rules/`
 and are run by `RuleFixturesTest` (Kotlin) and by `status_fixtures_test.go` /
-`upnext/fixtures_test.go` (Go). The TMDB key comes from `tmdb.apiKey` in the gitignored
+`upnext/fixtures_test.go` (Go); the Stats cases by `StatsFixturesTest` and
+`stats/stats_fixtures_test.go`. The TMDB key comes from `tmdb.apiKey` in the gitignored
 `androidApp/local.properties`. Adding a Gradle dependency requires
 asking first, like a Go module or an npm package.
 

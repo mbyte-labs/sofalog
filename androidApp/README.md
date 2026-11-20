@@ -146,7 +146,23 @@ filter working. The rules are pure functions in `domain/Discover.kt`, covered by
 — Kotlin tests only, since the server side did not change. Not ported from the web page: the
 Today window, the other sorts, the year range, minimum votes and the streaming-service filter.
 
-Not yet: check-in, the person page, upcoming, stats, the app's own backup file, and everything
+The **Stats** page (`ui/stats/`, in the menu) is SPEC D-039 on the device: every section of the
+web page — the headline numbers and the TV / movies split, the most watched show, the rating
+distribution, the highest rated rail, ratings over time, you vs the crowd, the movies waiting for
+a rating (rated in place, in a sheet), watch activity (plays per month, the day heatmap, weekdays,
+time of day, streaks, the first play), decades, most rewatched, show completion and top genres —
+for all time or one calendar year in the user's zone, picked from a row of chips. Nothing is
+fetched and nothing is stored: `VideoRepository.observeStats` reads the log and the ratings whole
+and `computeStats` in `domain/Stats.kt` folds them, a port of the server's
+`features/video/stats` held to it by `fixtures/video-rules/stats.json`
+(`StatsFixturesTest` here, `stats_fixtures_test.go` there). The page is live, so rating a movie
+or coming back from a title refreshes it. The charts are drawn with Compose — no chart library —
+and a tap on a bar or a heatmap day writes its number underneath, where the web shows a tooltip.
+On a phone the sections stack; from 840dp the cards pair up, and the content stops growing at
+1100dp. Different from the web by design: the period applies on tap (no Filters panel), a title
+opens by its TMDB id, and genres are read from the device's comma-joined genre column.
+
+Not yet: check-in, the person page, upcoming, the app's own backup file, and everything
 about linking to a server.
 
 ## TMDB key

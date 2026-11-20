@@ -29,3 +29,7 @@ val WatchlistItemColor = Color(0xFF7C5CFF)
  * bar's dropped mark. Dropped is deliberately neutral — a state, not an alarm.
  */
 val NeutralBadge = Color.Black.copy(alpha = 0.6f)
+
+/** A Stats difference that went up, and one that went down — the web's --ok and --err. */
+val StatUp = Color(0xFF6FD08C)
+val StatDown = Color(0xFFE07A7A)
