@@ -63,9 +63,11 @@ import ro.mbyte.sofalog.ui.settings.TicketBoxRestoreScreen
 import ro.mbyte.sofalog.ui.settings.TmdbAccountScreen
 import ro.mbyte.sofalog.ui.settings.ZonePickerScreen
 import ro.mbyte.sofalog.ui.stats.StatsScreen
+import ro.mbyte.sofalog.ui.upcoming.UpcomingScreen
 import ro.mbyte.sofalog.ui.upnext.UpNextScreen
 
 private const val UP_NEXT = "upnext"
+private const val UPCOMING = "upcoming"
 private const val HISTORY = "history"
 private const val SEARCH = "search"
 // Lists is a drawer root; each list's page sits under it so the drawer keeps Lists highlighted.
@@ -110,12 +112,13 @@ fun SofalogNav() {
         drawerState = drawer,
         // The edge swipe opens the menu on the top-level screens only; a detail page keeps its
         // plain back gesture. An open drawer can always be swiped shut.
-        gesturesEnabled = route == UP_NEXT || route == HISTORY || route == LISTS || route == SEARCH || route == DISCOVER || route == STATS || route == SETTINGS || drawer.isOpen,
+        gesturesEnabled = route == UP_NEXT || route == UPCOMING || route == HISTORY || route == LISTS || route == SEARCH || route == DISCOVER || route == STATS || route == SETTINGS || drawer.isOpen,
         drawerContent = {
             ModalDrawerSheet(Modifier.widthIn(max = 300.dp)) {
                 DrawerContent(
                     route = route,
                     onUpNext = { go { nav.topLevel(UP_NEXT) } },
+                    onUpcoming = { go { nav.topLevel(UPCOMING) } },
                     onHistory = { go { nav.topLevel(HISTORY) } },
                     onLists = { go { nav.topLevel(LISTS) } },
                     onSearch = { go { nav.topLevel(SEARCH) } },
@@ -136,6 +139,18 @@ fun SofalogNav() {
                     onTrending = { nav.topLevel(DISCOVER) },
                     onSettings = { nav.topLevel(SETTINGS) },
                     onMenu = openMenu,
+                )
+            }
+            // The dated things the user is waiting for, computed on the device (D-026).
+            composable(UPCOMING) {
+                UpcomingScreen(
+                    onMenu = openMenu,
+                    onOpenMovie = { id -> nav.navigate("movie/$id") },
+                    onOpenSeason = { show, season -> nav.navigate("show/$show/season/$season") },
+                    onOpenEpisode = { show, season, episode ->
+                        nav.navigate("show/$show/season/$season/episode/$episode")
+                    },
+                    onWatchlist = { push(ListKey.WATCHLIST.route) },
                 )
             }
             // Always live from TMDB (D-034); a card opens the title by TMDB id, as a search result does.
@@ -315,6 +330,7 @@ private fun NavHostController.topLevel(route: String) = navigate(route) {
 private fun DrawerContent(
     route: String?,
     onUpNext: () -> Unit,
+    onUpcoming: () -> Unit,
     onHistory: () -> Unit,
     onLists: () -> Unit,
     onSearch: () -> Unit,
@@ -331,6 +347,7 @@ private fun DrawerContent(
             )
             DrawerSectionLabel("Video")
             DrawerEntry("Up Next", DetailIcons.Play, route == UP_NEXT, onUpNext)
+            DrawerEntry("Upcoming", DetailIcons.Calendar, route == UPCOMING, onUpcoming)
             DrawerEntry("History", DetailIcons.History, route == HISTORY, onHistory)
             DrawerEntry("Lists", DetailIcons.Bookmark, route?.startsWith(LISTS) == true, onLists)
             DrawerEntry("Search", DetailIcons.Search, route == SEARCH, onSearch)

@@ -162,8 +162,20 @@ On a phone the sections stack; from 840dp the cards pair up, and the content sto
 1100dp. Different from the web by design: the period applies on tap (no Filters panel), a title
 opens by its TMDB id, and genres are read from the device's comma-joined genre column.
 
-Not yet: check-in, the person page, upcoming, the app's own backup file, and everything
-about linking to a server.
+**Upcoming** (`ui/upcoming/`, drawer entry "Upcoming") is the web's calendar (D-026) on the device:
+every unwatched, dated, non-special episode of a show that is followed or watchlisted and not
+dropped, plus every unwatched watchlisted movie, for the next two weeks, month, three months
+(the default) or year from the user's today. `VideoRepository.observeUpcoming` reads the window's
+rows live and `domain/Upcoming.kt` decides the rest — `upcomingEntries` is the server's selection
+and order, `buildUpcomingCards` the web's fold of a season released in one day into one card —
+held to the server by `fixtures/video-rules/upcoming.json` (`UpcomingFixturesTest` here,
+`upcoming_fixtures_test.go` there). One poster grid, each poster wearing its date ("Today" and
+"Tomorrow" in the theme's colour), no day headings; a card opens the episode, the season (a
+folded run) or the movie. On a phone the filters sit behind the top bar's toggle; from 840dp they
+stay on screen in one row.
+
+Not yet: check-in, the person page, the app's own backup file, and everything about linking to a
+server.
 
 ## TMDB key
 

@@ -107,6 +107,38 @@ data class SeasonBodyRow(
 )
 
 /**
+ * A dated, non-special episode inside the upcoming window, with the facts `upcomingEntries`
+ * decides on. The watch log, the watchlist and the state row are probed, never joined.
+ */
+data class UpcomingEpisodeRow(
+    val id: Long,
+    @ColumnInfo(name = "show_id") val showId: Long,
+    @ColumnInfo(name = "show_tmdb_id") val showTmdbId: Long,
+    @ColumnInfo(name = "show_title") val showTitle: String,
+    @ColumnInfo(name = "season_number") val seasonNumber: Int,
+    @ColumnInfo(name = "episode_number") val episodeNumber: Int,
+    val title: String?,
+    @ColumnInfo(name = "air_date") val airDate: String,
+    @ColumnInfo(name = "episode_type") val episodeType: String?,
+    /** The season's poster, else the show's. */
+    @ColumnInfo(name = "poster_path") val posterPath: String?,
+    /** The show's stored status; null when it has no state row. */
+    val status: String?,
+    val watchlisted: Boolean,
+    val watched: Boolean,
+)
+
+/** A watchlisted movie released inside the upcoming window. */
+data class UpcomingMovieRow(
+    val id: Long,
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    val title: String,
+    @ColumnInfo(name = "release_date") val releaseDate: String,
+    @ColumnInfo(name = "poster_path") val posterPath: String?,
+    val watched: Boolean,
+)
+
+/**
  * One entry of a list page (watchlist, favorites, dropped): a movie or a show, by `target_type`.
  * [addedAt] is when it joined the list — for a dropped show, the instant it was dropped.
  */
@@ -489,6 +521,35 @@ interface VideoDao {
             "FROM user_show_states st JOIN shows sh ON sh.id = st.show_id WHERE st.status = 'dropped'",
     )
     fun observeDroppedRows(): Flow<List<ListRow>>
+
+    // ---- the upcoming calendar (D-026): the window's rows, live. SQL narrows by date alone;
+    // `upcomingEntries` decides what is listed. No ORDER BY: that function owns the order.
+    @Query(
+        "SELECT e.id AS id, e.show_id AS show_id, sh.tmdb_id AS show_tmdb_id, sh.title AS show_title, " +
+            "e.season_number AS season_number, e.episode_number AS episode_number, e.title AS title, " +
+            "e.air_date AS air_date, e.episode_type AS episode_type, " +
+            "COALESCE(se.poster_path, sh.poster_path) AS poster_path, " +
+            "(SELECT st.status FROM user_show_states st WHERE st.show_id = sh.id) AS status, " +
+            "EXISTS(SELECT 1 FROM user_video_watchlist l " +
+            "WHERE l.target_type = 'show' AND l.target_id = sh.id) AS watchlisted, " +
+            "EXISTS(SELECT 1 FROM user_watch_history w " +
+            "WHERE w.target_type = 'episode' AND w.target_id = e.id) AS watched " +
+            "FROM episodes e JOIN shows sh ON sh.id = e.show_id " +
+            "LEFT JOIN seasons se ON se.id = e.season_id " +
+            "WHERE e.season_number > 0 AND e.air_date >= :from AND e.air_date < :until",
+    )
+    fun observeUpcomingEpisodeRows(from: String, until: String): Flow<List<UpcomingEpisodeRow>>
+
+    @Query(
+        "SELECT m.id AS id, m.tmdb_id AS tmdb_id, m.title AS title, m.release_date AS release_date, " +
+            "m.poster_path AS poster_path, " +
+            "EXISTS(SELECT 1 FROM user_watch_history w " +
+            "WHERE w.target_type = 'movie' AND w.target_id = m.id) AS watched " +
+            "FROM movies m WHERE m.release_date >= :from AND m.release_date < :until " +
+            "AND EXISTS(SELECT 1 FROM user_video_watchlist l " +
+            "WHERE l.target_type = 'movie' AND l.target_id = m.id)",
+    )
+    fun observeUpcomingMovieRows(from: String, until: String): Flow<List<UpcomingMovieRow>>
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertCopy(row: CopyEntity)

@@ -23,6 +23,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
@@ -169,6 +170,21 @@ fun PosterBadge(text: String, background: Color, content: Color, shape: Shape, m
         color = content,
         fontWeight = FontWeight.SemiBold,
         modifier = modifier.clip(shape).background(background).padding(horizontal = 8.dp, vertical = 4.dp),
+    )
+}
+
+/** A tab in a poster's top-left corner stack; only the stack's [last] tab rounds its bottom-right corner. */
+@Composable
+fun PosterTab(text: String, background: Color, last: Boolean) {
+    Text(
+        text,
+        style = MaterialTheme.typography.labelSmall,
+        color = OnBadge,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier
+            .clip(if (last) RoundedCornerShape(bottomEnd = 6.dp) else RectangleShape)
+            .background(background)
+            .padding(horizontal = 9.dp, vertical = 4.dp),
     )
 }
 

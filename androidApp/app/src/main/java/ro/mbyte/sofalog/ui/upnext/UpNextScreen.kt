@@ -58,6 +58,8 @@ import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.ui.common.CenteredLoading
 import ro.mbyte.sofalog.ui.common.Poster
 import ro.mbyte.sofalog.ui.common.PosterBadge
+import ro.mbyte.sofalog.ui.common.PosterShape
+import ro.mbyte.sofalog.ui.common.PosterTab
 import ro.mbyte.sofalog.ui.common.WatchLogForm
 import ro.mbyte.sofalog.ui.common.attempt
 import ro.mbyte.sofalog.ui.common.episodeCode
@@ -290,21 +292,4 @@ private fun UpNextCard(item: UpNextItem, onClick: () -> Unit, onLongClick: () ->
             modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
         )
     }
-}
-
-private val PosterShape = RoundedCornerShape(8.dp)
-
-/** A tab in the poster's top-left corner; only the stack's [last] tab rounds its bottom-right corner. */
-@Composable
-private fun PosterTab(text: String, background: Color, last: Boolean) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelSmall,
-        color = OnBadge,
-        fontWeight = FontWeight.SemiBold,
-        modifier = Modifier
-            .clip(if (last) RoundedCornerShape(bottomEnd = 6.dp) else RectangleShape)
-            .background(background)
-            .padding(horizontal = 9.dp, vertical = 4.dp),
-    )
 }

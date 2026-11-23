@@ -824,7 +824,10 @@ the device — every section of the web page, for all time or one year in the us
 `computeStats` in `domain/Stats.kt` (a port of the server's `features/video/stats`; change one,
 change the other and `fixtures/video-rules/stats.json`) from `VideoRepository.observeStats`' whole
 read of the log and the ratings — live, never stored, never a provider call; its charts are drawn
-in Compose (no chart dependency) and `domain/StatsLabels.kt` holds the web page's copy. **The Lists hub is built** (`ui/lists/`, drawer
+in Compose (no chart dependency) and `domain/StatsLabels.kt` holds the web page's copy. **The Upcoming page is built** (`ui/upcoming/`, drawer entry "Upcoming"): D-026 on the device —
+`VideoRepository.observeUpcoming` reads the window's rows live and `domain/Upcoming.kt` decides
+them (`upcomingEntries` is the server's selection and order, `buildUpcomingCards` the web's fold;
+change one, change the other and `fixtures/video-rules/upcoming.json`). **The Lists hub is built** (`ui/lists/`, drawer
 entry "Lists"): one poster-fan card per list — Watchlist, Favorites, Dropped — and one page per list,
 each list read whole from Room and ordered and filtered in Kotlin by `domain/ListOrder.kt`
 (`orderList` is the server's list ordering; `summarize` its hub counts, plus the newest five POSTERS for the card's fan — deliberately not the web hub's backdrop pick). **The TMDB account link and the Ticket Box restore

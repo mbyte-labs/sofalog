@@ -58,6 +58,13 @@ import ro.mbyte.sofalog.domain.languageOptions
 import ro.mbyte.sofalog.domain.mergeByPopularity
 import ro.mbyte.sofalog.domain.trendingRowKind
 import ro.mbyte.sofalog.domain.Clock
+import ro.mbyte.sofalog.domain.UpcomingCard
+import ro.mbyte.sofalog.domain.UpcomingEpisode
+import ro.mbyte.sofalog.domain.UpcomingMovie
+import ro.mbyte.sofalog.domain.UpcomingShow
+import ro.mbyte.sofalog.domain.UpcomingType
+import ro.mbyte.sofalog.domain.buildUpcomingCards
+import ro.mbyte.sofalog.domain.upcomingEntries
 import ro.mbyte.sofalog.domain.ClockReading
 import ro.mbyte.sofalog.domain.EpisodeKey
 import ro.mbyte.sofalog.domain.EpisodeRef
@@ -111,6 +118,7 @@ import ro.mbyte.sofalog.domain.splitGenres
 import ro.mbyte.sofalog.domain.statsYear
 import java.time.Duration
 import java.time.Instant
+import java.time.LocalDate
 
 enum class MediaKind { MOVIE, SHOW }
 
@@ -1141,6 +1149,40 @@ class VideoRepository(
     /** Every list's card for the Lists page: all three, always, in [ListKey]'s order. */
     fun observeListSummaries(): Flow<List<Pair<ListKey, ListSummary>>> =
         combine(ListKey.entries.map { key -> observeList(key).map { key to summarize(it) } }) { it.toList() }
+
+    // ------------------------------------------------------------------ upcoming
+
+    /**
+     * The upcoming calendar (D-026) as its cards, for the [days] from the user's today. Live: a
+     * watch, a watchlist change, a drop or a refreshed air date re-emits. A pure local read —
+     * [upcomingEntries] decides what is listed and in what order, [buildUpcomingCards] folds it.
+     */
+    fun observeUpcoming(days: Int, type: UpcomingType): Flow<List<UpcomingCard>> {
+        val today = clock.read().today
+        val until = LocalDate.parse(today).plusDays(days.toLong()).toString()
+        return combine(
+            dao.observeUpcomingEpisodeRows(today, until),
+            dao.observeUpcomingMovieRows(today, until),
+        ) { episodeRows, movieRows ->
+            val episodes = episodeRows.map { row ->
+                UpcomingEpisode(
+                    id = row.id,
+                    show = UpcomingShow(row.showId, row.showTmdbId, row.showTitle, ShowStatus.of(row.status), row.watchlisted),
+                    season = row.seasonNumber,
+                    number = row.episodeNumber,
+                    title = row.title,
+                    airDate = row.airDate,
+                    marker = episodeMarker(row.episodeType, row.episodeNumber),
+                    watched = row.watched,
+                    posterPath = row.posterPath,
+                )
+            }
+            val movies = movieRows.map { row ->
+                UpcomingMovie(row.id, row.tmdbId, row.title, row.releaseDate, watchlisted = true, row.watched, row.posterPath)
+            }
+            buildUpcomingCards(upcomingEntries(episodes, movies, today, days, type), today)
+        }.flowOn(Dispatchers.Default)
+    }
 
     // ------------------------------------------------------------------ stats
 

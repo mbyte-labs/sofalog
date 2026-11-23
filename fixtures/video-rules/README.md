@@ -23,8 +23,15 @@ are the cases **both** test suites run, so a rule changed on one side fails the 
   heatmap stated as its non-empty days (`want_heatmap`: day → `[plays, level]`). The expected
   values are the server's answers; the Kotlin port must reproduce them.
 
+- `upcoming.json` — the upcoming calendar (D-026): shows (state, watchlisted, episodes) and
+  movies in, with an optional `days` and `type`; `want` is the listed entries in order, as
+  `<date> episode <show> S<n>E<n>` or `<date> movie <title>`. Ids follow file order on both sides.
+  `want_cards` is the clients' fold into cards (and an episode's `title` / `type` feed only that),
+  so the Go runner ignores it. Titles stay ASCII: SQL and Kotlin case-fold differently beyond it.
+
 Every case is evaluated with `today` as the user's day. Go: `status_fixtures_test.go` in
 `video/common` and `fixtures_test.go` in `video/upnext`. Kotlin: `RuleFixturesTest`. The TMDB and
 Ticket Box cases: `rule_fixtures_test.go` in `video/tmdbaccount` and `ticketbox_fixtures_test.go`
 in `video/restore`; Kotlin: `TmdbSyncTest` and `TicketBoxRestoreTest`. The Stats cases:
-`stats_fixtures_test.go` in `video/stats`; Kotlin: `StatsFixturesTest`.
+`stats_fixtures_test.go` in `video/stats`; Kotlin: `StatsFixturesTest`. The upcoming cases:
+`upcoming_fixtures_test.go` in `video/upcoming`; Kotlin: `UpcomingFixturesTest`.
