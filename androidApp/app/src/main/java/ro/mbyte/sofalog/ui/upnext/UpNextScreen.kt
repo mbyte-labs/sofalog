@@ -17,6 +17,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
@@ -55,6 +56,7 @@ import kotlinx.coroutines.launch
 import java.time.Instant
 import ro.mbyte.sofalog.data.UpNextItem
 import ro.mbyte.sofalog.data.VideoRepository
+import ro.mbyte.sofalog.data.tmdb.TmdbException
 import ro.mbyte.sofalog.ui.common.CenteredLoading
 import ro.mbyte.sofalog.ui.common.Poster
 import ro.mbyte.sofalog.ui.common.PosterBadge
@@ -87,6 +89,28 @@ class UpNextViewModel(private val repo: VideoRepository) : ViewModel() {
 
     val error = MutableStateFlow<String?>(null)
 
+    /** True while a pull-to-refresh is fetching. */
+    val refreshing = MutableStateFlow(false)
+
+    /**
+     * Re-fetches every show on the page and the season of each card's episode. A failure is said
+     * once, in the snackbar; the stored list keeps rendering.
+     */
+    fun refresh() {
+        val list = items.value ?: return
+        if (refreshing.value) return
+        refreshing.value = true
+        viewModelScope.launch {
+            try {
+                attempt { repo.refreshUpNext(list) }
+                    .onSuccess { report -> report.reason?.let { error.value = TmdbException(it).userMessage() } }
+                    .onFailure { error.value = it.userMessage() }
+            } finally {
+                refreshing.value = false
+            }
+        }
+    }
+
     /** [watchedAt] null is "now"; [rating] null leaves the episode's rating alone. */
     fun markWatched(item: UpNextItem, watchedAt: Instant?, rating: Int?) {
         viewModelScope.launch {
@@ -117,6 +141,7 @@ fun UpNextScreen(
     val items by vm.items.collectAsStateWithLifecycle()
     val hasHistory by vm.hasHistory.collectAsStateWithLifecycle()
     val error by vm.error.collectAsStateWithLifecycle()
+    val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     var chosen by remember { mutableStateOf<UpNextItem?>(null) }
@@ -146,21 +171,27 @@ fun UpNextScreen(
                 onSettings = onSettings,
                 modifier = Modifier.padding(padding),
             )
-            else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(minSize = 150.dp),
+            else -> PullToRefreshBox(
+                isRefreshing = refreshing,
+                onRefresh = vm::refresh,
                 modifier = Modifier.fillMaxSize().padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                items(list, key = { it.show.id }) { item ->
-                    UpNextCard(
-                        item,
-                        onClick = {
-                            onOpenEpisode(item.show.tmdbId, item.episode.seasonNumber, item.episode.episodeNumber)
-                        },
-                        onLongClick = { marking = false; chosen = item },
-                    )
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(minSize = 150.dp),
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                ) {
+                    items(list, key = { it.show.id }) { item ->
+                        UpNextCard(
+                            item,
+                            onClick = {
+                                onOpenEpisode(item.show.tmdbId, item.episode.seasonNumber, item.episode.episodeNumber)
+                            },
+                            onLongClick = { marking = false; chosen = item },
+                        )
+                    }
                 }
             }
         }

@@ -819,7 +819,7 @@ widgets; no games; no Jellyfin or matching screens.** **The catalog refresh runs
 foreground** (`data/CatalogRefresher.kt`, started and stopped by `MainActivity.onStart` /
 `onStop`): D-025's two classes picked by `domain/CatalogRefresh.kt` from each row's `fetched_at`,
 ticked on coming on screen and every six hours while there — the aired-since arm included, in the
-user's zone — each tick ending with the local status sweep — it is what returns a finished show to Up Next when a new season is announced. **Settings is built** (`ui/settings/`, drawer
+user's zone — each tick ending with the local status sweep — it is what returns a finished show to Up Next when a new season is announced. **Up Next has a pull-to-refresh** (`VideoRepository.refreshUpNext`): user-triggered, foreground only, it re-fetches every listed show whatever its age plus the season of each card's episode — closed or not, because the card's TMDB score is read from that season's body. **Settings is built** (`ui/settings/`, drawer
 entry "Settings"): About (the app's Data Sources: logo and version, the story, where the data lives, community links, and the one home of the TMDB notice), the time zone and the where-to-watch country (a `settings` table;
 `domain/UserZone.kt`'s `UserZone` and `WatchRegion` are the ONE place the rest of the app reads
 them — never `ZoneId.systemDefault()` or the `WATCH_REGION` default directly), with Users and Log

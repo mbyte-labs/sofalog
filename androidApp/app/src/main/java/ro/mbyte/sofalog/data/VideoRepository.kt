@@ -44,6 +44,7 @@ import ro.mbyte.sofalog.data.db.TARGET_SHOW
 import ro.mbyte.sofalog.data.db.WatchEntity
 import ro.mbyte.sofalog.data.tmdb.Fetched
 import ro.mbyte.sofalog.data.tmdb.TmdbClient
+import ro.mbyte.sofalog.data.tmdb.TmdbException
 import ro.mbyte.sofalog.data.tmdb.TmdbMovie
 import ro.mbyte.sofalog.data.tmdb.TmdbSearchResult
 import ro.mbyte.sofalog.data.tmdb.TmdbSeason
@@ -52,6 +53,7 @@ import ro.mbyte.sofalog.domain.BulkWatchMode
 import ro.mbyte.sofalog.domain.DiscoverFilters
 import ro.mbyte.sofalog.domain.GenreOption
 import ro.mbyte.sofalog.domain.LanguageOption
+import ro.mbyte.sofalog.domain.ProviderBreaker
 import ro.mbyte.sofalog.domain.RankedRow
 import ro.mbyte.sofalog.domain.ACTIVE_REFRESH_INTERVAL
 import ro.mbyte.sofalog.domain.RefreshCandidate
@@ -227,6 +229,9 @@ data class UpNextItem(
     /** This user's own rating of the episode, 1..10 — it can be rated before it is watched. */
     val userRating: Int? = null,
 )
+
+/** What a pull-to-refresh on Up Next did; [reason] is the first failure's, for the message. */
+data class UpNextRefreshReport(val refreshed: Int, val failed: Int, val reason: TmdbException.Reason?)
 
 enum class HistoryType(val target: String?) { ALL(null), MOVIES(TARGET_MOVIE), EPISODES(TARGET_EPISODE) }
 
@@ -855,7 +860,13 @@ class VideoRepository(
      * a stale page view runs: the root, any season the device did not have, and the open seasons.
      * A new season materialised here is what brings a finished show back to Up Next.
      */
-    override suspend fun refreshShow(tmdbId: Long) {
+    override suspend fun refreshShow(tmdbId: Long) = refreshShow(tmdbId, alsoSeasons = emptySet())
+
+    /**
+     * [alsoSeasons] are re-fetched whether open or not: Up Next's pull-to-refresh names the season
+     * each card's episode is in, which is where the card's score lives.
+     */
+    private suspend fun refreshShow(tmdbId: Long, alsoSeasons: Set<Int>) {
         val show = dao.showByTmdbId(tmdbId) ?: return
         val root = tmdb.show(tmdbId)
         val reading = clock.read()
@@ -875,7 +886,7 @@ class VideoRepository(
             }
             .map { it.seasonNumber }.toSet()
         val wanted = root.value.seasons.map { it.seasonNumber }
-            .filter { it !in held || it == latest || it in open }
+            .filter { it !in held || it == latest || it in open || it in alsoSeasons }
         val seasons = wanted.map { tmdb.season(tmdbId, it) }
         db.withTransaction {
             dao.updateShow(root.toEntity(id = show.id, now = reading.now))
@@ -1131,13 +1142,45 @@ class VideoRepository(
 
     // ------------------------------------------------------------------ up next
 
+    /** Whether anything was ever logged: what tells an empty Up Next "new here" from "caught up". */
+    fun observeHasWatches(): Flow<Boolean> = dao.observeHasWatches()
+
+    /**
+     * Up Next's pull-to-refresh: re-fetches every listed show whatever its age — the root, its new
+     * and open seasons, and the season of the card's own episode, closed or not, since that
+     * season's body is where the card's TMDB score is read from. One show at a time, with the
+     * catalog refresh's guards: three outages in a row abandon the rest, and a missing or refused
+     * key stops at once. A failed show keeps its stored snapshot.
+     */
+    suspend fun refreshUpNext(items: List<UpNextItem>): UpNextRefreshReport {
+        val breaker = ProviderBreaker()
+        var refreshed = 0
+        var failed = 0
+        var reason: TmdbException.Reason? = null
+        for (item in items) {
+            try {
+                refreshShow(item.show.tmdbId, alsoSeasons = setOf(item.episode.seasonNumber))
+                breaker.observe(false)
+                refreshed++
+            } catch (e: TmdbException) {
+                failed++
+                if (reason == null) reason = e.reason
+                when (e.reason) {
+                    TmdbException.Reason.UNAVAILABLE -> breaker.observe(true)
+                    TmdbException.Reason.NO_KEY, TmdbException.Reason.BAD_KEY ->
+                        return UpNextRefreshReport(refreshed, failed, reason)
+                    else -> breaker.observe(false)
+                }
+                if (breaker.open) break
+            }
+        }
+        return UpNextRefreshReport(refreshed, failed, reason)
+    }
+
     /**
      * One entry per started, not-dropped show with an episode after its highest watched one,
      * most recently watched first. A pure local read.
      */
-    /** Whether anything was ever logged: what tells an empty Up Next "new here" from "caught up". */
-    fun observeHasWatches(): Flow<Boolean> = dao.observeHasWatches()
-
     fun observeUpNext(): Flow<List<UpNextItem>> =
         combine(
             dao.observeStartedShows(),

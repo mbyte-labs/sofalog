@@ -21,6 +21,9 @@ opens a bottom sheet offering "Mark as watched" and "Check in" (also a placehold
 nothing). "Mark as watched" there asks for an optional rating (1–10, stored in
 `user_video_ratings`) and when the watch happened: now, the release date (midnight that day in the
 device's zone) or a picked date and time, never in the future.
+Pulling the Up Next grid down re-fetches from TMDB every show on the page and the season of each
+card's episode — closed seasons included, since the season's body is where the card's TMDB score
+comes from. A failure is said once in a snackbar and the stored list stays.
 With nothing in progress, Up Next shows the app's mark (gently animated), a line that tells a
 never-used library ("Your sofa is ready") from a caught-up one ("All caught up" — the log holds a
 watch), and three cards: Search, Trending on TMDB (the Discover page) and Settings.
@@ -55,8 +58,7 @@ every page, each one carries the menu button in its top bar; going back is the s
 The History page lists every watch, one card per watch (a rewatch is another card), in month
 sections of the device's zone, with a movies / episodes filter, newest- or oldest-first order and
 48 more per "Load more"; a card opens the movie page or the episode page. It shows the
-user's rating and, for movies, TMDB's score — an episode card has no score, because the device
-stores none per season. The card is the search card without its watched tab (every card here is a watch): the
+user's rating and TMDB's score — a movie's own, an episode's out of its season's stored body. The card is the search card without its watched tab (every card here is a watch): the
 watchlist and favorite tabs top-left (an episode wears its show's), the kind bottom-left. A long-press on a card offers removal, each confirmed first: that one
 entry; every entry of the movie or episode (offered when there is more than one); and for an
 episode, every watch of its season or of its whole show.
