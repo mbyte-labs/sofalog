@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- What the FileProvider may hand to another app: the backup written for the share sheet. -->
+<paths>
+    <cache-path
+        name="backups"
+        path="backups/" />
+</paths>

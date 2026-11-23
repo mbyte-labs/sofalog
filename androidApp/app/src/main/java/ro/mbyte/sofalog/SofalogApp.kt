@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import ro.mbyte.sofalog.data.BackupRepository
 import ro.mbyte.sofalog.data.CatalogRefresher
 import ro.mbyte.sofalog.data.RestoreRepository
 import ro.mbyte.sofalog.data.VideoRepository
@@ -49,4 +50,6 @@ class SofalogApp : Application() {
     val restore: RestoreRepository by lazy {
         RestoreRepository(contentResolver, repository, Clock.System, appScope)
     }
+
+    val backup: BackupRepository by lazy { BackupRepository(this, repository, restore, Clock.System) }
 }

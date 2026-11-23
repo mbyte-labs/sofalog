@@ -23,11 +23,18 @@ const val SKIP_SHOW_NOT_FOUND = "show_not_found"
 const val SKIP_SHOW_UNAVAILABLE = "show_unavailable"
 const val SKIP_PROVIDER_UNAVAILABLE = "provider_unavailable"
 const val SKIP_EPISODE_NOT_FOUND = "episode_not_found"
+const val SKIP_UNKNOWN_COPY_KIND = "unknown_copy_kind"
+const val SKIP_SEASON_NOT_FOUND = "season_not_found"
 
 const val RESTORE_HISTORY = "history"
 const val RESTORE_RATING = "rating"
 const val RESTORE_WATCHLIST = "watchlist"
 const val RESTORE_FAVORITE = "favorite"
+
+// The app's own backup carries three more kinds of entry than a Ticket Box file does.
+const val RESTORE_COPY = "copy"
+const val RESTORE_DROPPED = "dropped"
+const val RESTORE_TITLE = "title"
 
 private val WATCH_TYPES = setOf("watch", "checkin", "scrobble")
 
@@ -52,19 +59,34 @@ data class PlannedEpisodeWatch(val season: Int, val episode: Int, val tmdbId: Lo
 
 data class PlannedEpisodeRating(val season: Int, val episode: Int, val tmdbId: Long?, val rating: PlannedRating)
 
+data class PlannedCopy(val kind: String, val at: String)
+
+data class PlannedSeasonCopy(val season: Int, val kind: String, val at: String)
+
+/**
+ * [exact] is the app's own backup: the group states the title's WHOLE state, so the write replaces
+ * everything the device holds for it — what the group lacks is removed. Without it (a Ticket Box
+ * file) only the watches are replaced, and only when the group has some.
+ */
 data class MovieGroup(
     val tmdbId: Long,
     val watches: List<String>,
     val rating: PlannedRating?,
     val watchlistAt: String?,
     val favoriteAt: String?,
+    val copies: List<PlannedCopy> = emptyList(),
+    val exact: Boolean = false,
 ) {
+    /** How many entries of the file the group carries. */
+    val entries: Int get() = skips("").size
+
     /** A whole-group refusal as one skip per entry, so the counts stay exact. */
     fun skips(reason: String): List<RestoreSkip> = buildList {
         repeat(watches.size) { add(RestoreSkip(RESTORE_HISTORY, "movie", tmdbId, null, null, null, reason)) }
         if (rating != null) add(RestoreSkip(RESTORE_RATING, "movie", tmdbId, null, null, null, reason))
         if (watchlistAt != null) add(RestoreSkip(RESTORE_WATCHLIST, "movie", tmdbId, null, null, null, reason))
         if (favoriteAt != null) add(RestoreSkip(RESTORE_FAVORITE, "movie", tmdbId, null, null, null, reason))
+        repeat(copies.size) { add(RestoreSkip(RESTORE_COPY, "movie", tmdbId, null, null, null, reason)) }
     }
 }
 
@@ -75,13 +97,21 @@ data class ShowGroup(
     val episodeRatings: List<PlannedEpisodeRating>,
     val watchlistAt: String?,
     val favoriteAt: String?,
+    val seasonCopies: List<PlannedSeasonCopy> = emptyList(),
+    /** When the show was dropped; read only in an [exact] group. */
+    val droppedAt: String? = null,
+    val exact: Boolean = false,
 ) {
+    val entries: Int get() = skips("").size
+
     fun skips(reason: String): List<RestoreSkip> = buildList {
         watches.forEach { add(RestoreSkip(RESTORE_HISTORY, "episode", null, tmdbId, it.season, it.episode, reason)) }
         if (showRating != null) add(RestoreSkip(RESTORE_RATING, "show", tmdbId, null, null, null, reason))
         episodeRatings.forEach { add(RestoreSkip(RESTORE_RATING, "episode", null, tmdbId, it.season, it.episode, reason)) }
         if (watchlistAt != null) add(RestoreSkip(RESTORE_WATCHLIST, "show", tmdbId, null, null, null, reason))
         if (favoriteAt != null) add(RestoreSkip(RESTORE_FAVORITE, "show", tmdbId, null, null, null, reason))
+        seasonCopies.forEach { add(RestoreSkip(RESTORE_COPY, "season", null, tmdbId, it.season, null, reason)) }
+        if (droppedAt != null) add(RestoreSkip(RESTORE_DROPPED, "show", tmdbId, null, null, null, reason))
     }
 }
 

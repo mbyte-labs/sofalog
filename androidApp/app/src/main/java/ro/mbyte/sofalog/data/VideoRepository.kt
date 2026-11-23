@@ -80,11 +80,14 @@ import ro.mbyte.sofalog.domain.ListItemKind
 import ro.mbyte.sofalog.domain.ListSummary
 import ro.mbyte.sofalog.domain.summarize
 import ro.mbyte.sofalog.domain.MovieGroup
+import ro.mbyte.sofalog.domain.BackupRows
+import ro.mbyte.sofalog.domain.RESTORE_COPY
 import ro.mbyte.sofalog.domain.RESTORE_HISTORY
 import ro.mbyte.sofalog.domain.RESTORE_RATING
 import ro.mbyte.sofalog.domain.RestoreCounts
 import ro.mbyte.sofalog.domain.RestoreSkip
 import ro.mbyte.sofalog.domain.SKIP_EPISODE_NOT_FOUND
+import ro.mbyte.sofalog.domain.SKIP_SEASON_NOT_FOUND
 import ro.mbyte.sofalog.domain.ShowGroup
 import ro.mbyte.sofalog.domain.WATCH_REGION
 import ro.mbyte.sofalog.domain.WatchRegion
@@ -1428,35 +1431,60 @@ class VideoRepository(
         return RestoreResolved(id, dao.showById(id)?.title.orEmpty(), materialised = true)
     }
 
+    /**
+     * One list row of a restore group. A Ticket Box group adds the row when absent. An exact group
+     * replaces it — the file's date wins — and removes one the file does not have; TMDB is told
+     * only about a change of membership, never about a row that was there before and after.
+     * Returns whether the group wrote a row. Must run inside the group's transaction.
+     */
+    private suspend fun restoreListed(
+        favorite: Boolean, type: String, localId: Long, tmdbId: Long, at: String?, exact: Boolean, now: String,
+    ): Boolean {
+        val kind = if (favorite) SYNC_FAVORITE else SYNC_WATCHLIST
+        val had = exact && (if (favorite) dao.deleteFavorite(type, localId) else dao.deleteWatchlist(type, localId)) > 0
+        if (at == null) {
+            if (had) mirror(kind, type, tmdbId, SYNC_DELETE, null, now)
+            return false
+        }
+        val inserted = if (favorite) {
+            dao.insertFavorite(FavoriteEntity(type, localId, at))
+        } else {
+            dao.insertWatchlist(WatchlistEntity(type, localId, at))
+        } != -1L
+        if (inserted && !had) mirror(kind, type, tmdbId, SYNC_SET, null, now)
+        return inserted
+    }
+
     override suspend fun writeRestoreMovie(target: RestoreResolved, group: MovieGroup): RestoreCounts {
         val now = clock.read().now
         val movieId = target.localId
         val counts = db.withTransaction {
             var c = RestoreCounts()
-            // Replace: only a group the file has watches for loses its existing ones.
-            if (group.watches.isNotEmpty()) {
+            // Replace: a Ticket Box group loses its existing watches only when the file has some
+            // for it; an exact group states the whole title, so it always does.
+            if (group.exact || group.watches.isNotEmpty()) {
                 val replaced = dao.deleteTargetWatches(TARGET_MOVIE, movieId)
                 dao.insertWatches(group.watches.map { WatchEntity(targetType = TARGET_MOVIE, targetId = movieId, watchedAt = it) })
                 c = c.copy(historyInserted = group.watches.size, historyReplaced = replaced)
             }
-            group.rating?.let {
-                dao.upsertRating(RatingEntity(TARGET_MOVIE, movieId, it.value, it.at))
-                mirror(SYNC_RATING, TARGET_MOVIE, group.tmdbId, SYNC_SET, it.value, now)
+            val rating = group.rating
+            if (rating != null) {
+                dao.upsertRating(RatingEntity(TARGET_MOVIE, movieId, rating.value, rating.at))
+                mirror(SYNC_RATING, TARGET_MOVIE, group.tmdbId, SYNC_SET, rating.value, now)
                 c = c.copy(ratingsUpserted = 1)
+            } else if (group.exact && dao.deleteRating(TARGET_MOVIE, movieId) > 0) {
+                mirror(SYNC_RATING, TARGET_MOVIE, group.tmdbId, SYNC_DELETE, null, now)
             }
-            group.watchlistAt?.let {
-                if (dao.insertWatchlist(WatchlistEntity(TARGET_MOVIE, movieId, it)) != -1L) {
-                    mirror(SYNC_WATCHLIST, TARGET_MOVIE, group.tmdbId, SYNC_SET, null, now)
-                    c = c.copy(watchlistInserted = 1)
-                }
+            if (restoreListed(false, TARGET_MOVIE, movieId, group.tmdbId, group.watchlistAt, group.exact, now)) {
+                c = c.copy(watchlistInserted = 1)
             }
-            group.favoriteAt?.let {
-                if (dao.insertFavorite(FavoriteEntity(TARGET_MOVIE, movieId, it)) != -1L) {
-                    mirror(SYNC_FAVORITE, TARGET_MOVIE, group.tmdbId, SYNC_SET, null, now)
-                    c = c.copy(favoritesInserted = 1)
-                }
+            if (restoreListed(true, TARGET_MOVIE, movieId, group.tmdbId, group.favoriteAt, group.exact, now)) {
+                c = c.copy(favoritesInserted = 1)
             }
-            c
+            // Copies are a shelf label of this device's library: never mirrored anywhere.
+            if (group.exact) dao.deleteTargetCopies(TARGET_MOVIE, movieId)
+            group.copies.forEach { dao.insertCopy(CopyEntity(TARGET_MOVIE, movieId, it.kind, it.at)) }
+            c.copy(copiesInserted = group.copies.size)
         }
         onSyncWrite()
         return counts
@@ -1480,44 +1508,94 @@ class VideoRepository(
             if (id == null) missing(RESTORE_RATING, r.season, r.episode)
             id?.let { RatingEntity(TARGET_EPISODE, it, r.rating.value, r.rating.at) to r }
         }
+        // A copy hangs on a season row; one TMDB no longer lists has nowhere to go.
+        val seasonIds = if (group.seasonCopies.isEmpty()) emptyMap() else dao.seasons(showId).associate { it.seasonNumber to it.id }
+        val copies = group.seasonCopies.mapNotNull { copy ->
+            val seasonId = seasonIds[copy.season]
+            if (seasonId == null) {
+                skips += RestoreSkip(RESTORE_COPY, "season", null, group.tmdbId, copy.season, null, SKIP_SEASON_NOT_FOUND, target.title)
+            }
+            seasonId?.let { CopyEntity(TARGET_SEASON, it, copy.kind, copy.at) }
+        }
         // Read per group: a long import can cross midnight.
         val reading = clock.read()
         val counts = db.withTransaction {
             var c = RestoreCounts()
-            // The gate is that the FILE had watches for the show, not that any resolved.
-            if (group.watches.isNotEmpty()) {
+            // The gate is that the FILE had watches for the show, not that any resolved — or that
+            // the group is exact, and so states the show's whole history.
+            if (group.exact || group.watches.isNotEmpty()) {
                 val replaced = dao.deleteShowWatches(showId)
                 dao.insertWatches(watches)
                 c = c.copy(historyInserted = watches.size, historyReplaced = replaced)
             }
-            group.showRating?.let {
-                dao.upsertRating(RatingEntity(TARGET_SHOW, showId, it.value, it.at))
-                mirror(SYNC_RATING, TARGET_SHOW, group.tmdbId, SYNC_SET, it.value, reading.now)
+            val showRating = group.showRating
+            if (showRating != null) {
+                dao.upsertRating(RatingEntity(TARGET_SHOW, showId, showRating.value, showRating.at))
+                mirror(SYNC_RATING, TARGET_SHOW, group.tmdbId, SYNC_SET, showRating.value, reading.now)
                 c = c.copy(ratingsUpserted = c.ratingsUpserted + 1)
+            } else if (group.exact && dao.deleteRating(TARGET_SHOW, showId) > 0) {
+                mirror(SYNC_RATING, TARGET_SHOW, group.tmdbId, SYNC_DELETE, null, reading.now)
+            }
+            if (group.exact) {
+                // Episode ratings the file does not have go, each named to TMDB by its position.
+                val kept = ratings.map { it.first.targetId }.toSet()
+                for (old in dao.ratedEpisodeKeys(showId)) {
+                    if (old.id in kept) continue
+                    dao.deleteRating(TARGET_EPISODE, old.id)
+                    mirror(SYNC_RATING, TARGET_EPISODE, group.tmdbId, SYNC_DELETE, null, reading.now, old.seasonNumber, old.episodeNumber)
+                }
             }
             for ((row, planned) in ratings) {
                 dao.upsertRating(row)
                 mirror(SYNC_RATING, TARGET_EPISODE, group.tmdbId, SYNC_SET, row.rating, reading.now, planned.season, planned.episode)
             }
             c = c.copy(ratingsUpserted = c.ratingsUpserted + ratings.size)
-            group.watchlistAt?.let {
-                if (dao.insertWatchlist(WatchlistEntity(TARGET_SHOW, showId, it)) != -1L) {
-                    mirror(SYNC_WATCHLIST, TARGET_SHOW, group.tmdbId, SYNC_SET, null, reading.now)
-                    c = c.copy(watchlistInserted = 1)
-                }
+            if (restoreListed(false, TARGET_SHOW, showId, group.tmdbId, group.watchlistAt, group.exact, reading.now)) {
+                c = c.copy(watchlistInserted = 1)
             }
-            group.favoriteAt?.let {
-                if (dao.insertFavorite(FavoriteEntity(TARGET_SHOW, showId, it)) != -1L) {
-                    mirror(SYNC_FAVORITE, TARGET_SHOW, group.tmdbId, SYNC_SET, null, reading.now)
-                    c = c.copy(favoritesInserted = 1)
-                }
+            if (restoreListed(true, TARGET_SHOW, showId, group.tmdbId, group.favoriteAt, group.exact, reading.now)) {
+                c = c.copy(favoritesInserted = 1)
             }
-            // A rating is not a watch (D-010): only a group with watches recomputes.
-            if (group.watches.isNotEmpty()) recompute(showId, reading)
+            if (group.exact) dao.deleteShowCopies(showId)
+            copies.forEach { dao.insertCopy(it) }
+            c = c.copy(copiesInserted = copies.size)
+            if (group.exact) {
+                // The status is rebuilt from the log the group just wrote: a drop the file does not
+                // have is taken back first (the un-drop's landing value), then the one recompute,
+                // then the file's own drop with its instant. A dropped show may hold no watch at
+                // all, so that last write is an upsert.
+                val dropped = dao.showState(showId)?.status == ShowStatus.DROPPED.value
+                if (dropped) dao.updateShowStateStatus(showId, ShowStatus.WATCHING.value, reading.now)
+                recompute(showId, reading)
+                group.droppedAt?.let {
+                    dao.upsertShowState(ShowStateEntity(showId, ShowStatus.DROPPED.value, it))
+                    c = c.copy(showsDropped = 1)
+                }
+            } else if (group.watches.isNotEmpty()) {
+                // A rating is not a watch (D-010): only a group with watches recomputes.
+                recompute(showId, reading)
+            }
             c
         }
         onSyncWrite()
         return counts to skips
+    }
+
+    // ------------------------------------------------------------------ backup (D-040)
+
+    /** Everything the backup file holds, read in one transaction so the file is one moment of the library. */
+    suspend fun backupRows(): BackupRows = db.withTransaction {
+        BackupRows(
+            movieWatches = dao.backupMovieWatches(),
+            episodeWatches = dao.backupEpisodeWatches(),
+            ratings = dao.backupRatings(),
+            episodeRatings = dao.backupEpisodeRatings(),
+            watchlist = dao.backupWatchlist(),
+            favorites = dao.backupFavorites(),
+            dropped = dao.backupDropped(),
+            movieCopies = dao.backupMovieCopies(),
+            seasonCopies = dao.backupSeasonCopies(),
+        )
     }
 
     /** A skip's title, read locally at the end of a run; null when the title is not held. */

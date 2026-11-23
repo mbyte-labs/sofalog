@@ -10,7 +10,9 @@ import ro.mbyte.sofalog.data.tmdb.TmdbException
 import ro.mbyte.sofalog.domain.Clock
 import ro.mbyte.sofalog.domain.ClockReading
 import ro.mbyte.sofalog.domain.MovieGroup
+import ro.mbyte.sofalog.domain.PlannedCopy
 import ro.mbyte.sofalog.domain.PlannedEpisodeWatch
+import ro.mbyte.sofalog.domain.PlannedSeasonCopy
 import ro.mbyte.sofalog.domain.RESTORE_CANCELLED_MESSAGE
 import ro.mbyte.sofalog.domain.RESTORE_DONE
 import ro.mbyte.sofalog.domain.RESTORE_FAILED
@@ -75,7 +77,7 @@ class RestoreRunnerTest {
             progress = RestoreProgress(plan.groups),
             report = RestoreReport(moviesTotal = plan.movies.size, showsTotal = plan.shows.size),
         )
-        runBlocking { runTicketBoxRestore(plan, writes, clock) { change -> job = change(job) } }
+        runBlocking { runRestore(plan, writes, clock) { change -> job = change(job) } }
         return job
     }
 
@@ -99,6 +101,27 @@ class RestoreRunnerTest {
         assertEquals(1, job.report.moviesMaterialised)
         assertEquals(listOf(2L), writes.fetched)
         assertEquals(SKIP_EPISODE_NOT_FOUND, job.report.skipped.single().reason)
+    }
+
+    @Test
+    fun copiesAndDropsAreCountedInTheReport() {
+        val writes = object : RestoreWrites by FakeWrites(held = setOf(1)) {
+            override suspend fun writeRestoreMovie(target: RestoreResolved, group: MovieGroup) =
+                RestoreCounts(copiesInserted = group.copies.size)
+
+            override suspend fun writeRestoreShow(target: RestoreResolved, group: ShowGroup) =
+                RestoreCounts(copiesInserted = group.seasonCopies.size, showsDropped = if (group.droppedAt != null) 1 else 0) to
+                    emptyList<RestoreSkip>()
+        }
+        val at = "2026-01-01T00:00:00Z"
+        val plan = RestorePlan(
+            listOf(MovieGroup(1, emptyList(), null, null, null, copies = listOf(PlannedCopy("dvd", at), PlannedCopy("uhd", at)), exact = true)),
+            listOf(ShowGroup(10, emptyList(), null, emptyList(), null, null, listOf(PlannedSeasonCopy(1, "dvd", at)), droppedAt = at, exact = true)),
+        )
+        val job = run(plan, writes)
+        assertEquals(RESTORE_DONE, job.state)
+        assertEquals(3, job.report.copiesInserted)
+        assertEquals(1, job.report.showsDropped)
     }
 
     @Test
@@ -172,7 +195,7 @@ class RestoreRunnerTest {
                 ),
             ),
         )
-        runBlocking { runTicketBoxRestore(RestorePlan(emptyList(), emptyList()), writes, clock) { change -> job = change(job) } }
+        runBlocking { runRestore(RestorePlan(emptyList(), emptyList()), writes, clock) { change -> job = change(job) } }
         assertEquals(listOf("Held 7", null), job.report.skipped.map { it.title })
     }
 }

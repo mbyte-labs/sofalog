@@ -40,14 +40,22 @@ every page, each one carries the menu button in its top bar; going back is the s
   per kind whether to Pull, Push or Skip, and choose which of ratings, watchlist and favorites are
   kept in sync, one way. Changes queue in `user_tmdb_sync` and are sent **only while the app is
   open**. The session id is not in the database: `TmdbSessionStore` keeps it encrypted in
-  no-backup storage, so it rides no backup — and the future backup file must skip
-  `user_tmdb_accounts` and `user_tmdb_sync` too.
+  no-backup storage, so it rides no backup — and the app's own backup file leaves
+  `user_tmdb_accounts` and `user_tmdb_sync` out too.
 - **Backup & Restore** — two sections. *Restore backup*: import a Ticket Box version-5 export
   picked with the system file picker: a summary, a confirm, live progress, a Stop action and a
   report whose skipped entries open the title they belong to. The import runs in the app's own
   scope, so it survives leaving the page but not the app being closed; running the same file
-  again converges. A sofalog dump is listed and disabled. *Create backup* is a "coming soon"
-  note: nothing is built.
+  again converges. A **sofalog backup** — the app's own file — restores through the same page and
+  the same run, with one difference: each movie and show in the file is replaced by the file's
+  state (what the file lacks is removed), and titles the file does not name are left alone.
+  *Create backup* writes that file: one JSON document (`sofalog-backup-YYYY-MM-DD.json`,
+  `"format": "sofalog-backup"`, version 1) with the watch history, ratings, watchlist, favorites,
+  dropped shows and copies, grouped per title and TMDB-addressed. **Save to device** writes it
+  where the system's file picker points; **Share…** writes it to the cache and hands it to
+  another app (a drive, mail, a nearby device) through a `FileProvider` read grant. The settings,
+  the TMDB link and the catalog are not in it; a restore fetches each title from TMDB again. The
+  format and its reader are `domain/Backup.kt`; the writer is `data/BackupRepository.kt`.
 - **Delete data** — two actions, each behind a confirm and both refused while a restore or the
   TMDB setup's import is running. *Movies and shows* empties the library in one transaction
   (history, ratings, watchlist, favorites, dropped shows, copies, the stored titles and the
@@ -188,8 +196,7 @@ is announced. Every tick ends with the local status sweep, a tick that finished 
 for fifteen minutes, three outages in a row abandon fetching until the next one, and leaving the
 app cancels it — this is not background work. Until the app is opened, nothing is fetched.
 
-Not yet: check-in, the person page, the app's own backup file, and everything about linking to a
-server.
+Not yet: check-in, the person page, and everything about linking to a server.
 
 ## TMDB key
 

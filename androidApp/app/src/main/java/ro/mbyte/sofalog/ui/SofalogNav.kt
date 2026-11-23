@@ -55,10 +55,12 @@ import ro.mbyte.sofalog.ui.common.tmdbAccount
 import ro.mbyte.sofalog.ui.details.parts.DetailIcons
 import ro.mbyte.sofalog.ui.search.SearchScreen
 import ro.mbyte.sofalog.ui.settings.AccountScreen
+import ro.mbyte.sofalog.ui.settings.BackupScreen
 import ro.mbyte.sofalog.ui.settings.RegionPickerScreen
 import ro.mbyte.sofalog.ui.settings.DeleteDataScreen
 import ro.mbyte.sofalog.ui.settings.RestoreScreen
 import ro.mbyte.sofalog.ui.settings.SettingsScreen
+import ro.mbyte.sofalog.ui.settings.SofalogRestoreScreen
 import ro.mbyte.sofalog.ui.settings.TicketBoxRestoreScreen
 import ro.mbyte.sofalog.ui.settings.TmdbAccountScreen
 import ro.mbyte.sofalog.ui.settings.ZonePickerScreen
@@ -84,6 +86,8 @@ private const val SETTINGS_REGION = "settings/region"
 private const val SETTINGS_RESTORE = "settings/restore"
 private const val SETTINGS_DELETE = "settings/delete"
 private const val SETTINGS_TICKET_BOX = "settings/restore/ticket-box"
+private const val SETTINGS_SOFALOG_RESTORE = "settings/restore/sofalog"
+private const val SETTINGS_BACKUP = "settings/backup"
 private const val SETTINGS_TMDB = "settings/tmdb"
 
 /** Titles are addressed by TMDB id everywhere: it names tracked and untracked items alike. */
@@ -193,7 +197,22 @@ fun SofalogNav() {
             composable(SETTINGS_ZONE) { ZonePickerScreen(onMenu = openMenu, onDone = { nav.popBackStack() }) }
             composable(SETTINGS_REGION) { RegionPickerScreen(onMenu = openMenu, onDone = { nav.popBackStack() }) }
             composable(SETTINGS_RESTORE) {
-                RestoreScreen(onMenu = openMenu, onTicketBox = { push(SETTINGS_TICKET_BOX) })
+                RestoreScreen(
+                    onMenu = openMenu,
+                    onTicketBox = { push(SETTINGS_TICKET_BOX) },
+                    onSofalog = { push(SETTINGS_SOFALOG_RESTORE) },
+                    onBackup = { push(SETTINGS_BACKUP) },
+                )
+            }
+            composable(SETTINGS_BACKUP) { BackupScreen(onMenu = openMenu) }
+            composable(SETTINGS_SOFALOG_RESTORE) {
+                SofalogRestoreScreen(
+                    onMenu = openMenu,
+                    onAbout = { push(ABOUT) },
+                    onOpenMovie = { id -> nav.navigate("movie/$id") },
+                    onOpenShow = { id -> nav.navigate("show/$id") },
+                    onOpenSeason = { id, n -> nav.navigate("show/$id/season/$n") },
+                )
             }
             composable(SETTINGS_TICKET_BOX) {
                 TicketBoxRestoreScreen(

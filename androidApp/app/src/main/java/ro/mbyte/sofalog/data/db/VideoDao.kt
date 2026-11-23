@@ -9,6 +9,13 @@ import androidx.room.Transaction
 import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
+import ro.mbyte.sofalog.domain.BackupEpisodeRatingRow
+import ro.mbyte.sofalog.domain.BackupEpisodeWatchRow
+import ro.mbyte.sofalog.domain.BackupListRow
+import ro.mbyte.sofalog.domain.BackupMovieCopyRow
+import ro.mbyte.sofalog.domain.BackupMovieWatchRow
+import ro.mbyte.sofalog.domain.BackupRatingRow
+import ro.mbyte.sofalog.domain.BackupSeasonCopyRow
 
 data class StartedShow(
     @ColumnInfo(name = "show_id") val showId: Long,
@@ -541,7 +548,7 @@ interface VideoDao {
     fun observeRating(type: String, targetId: Long): Flow<Int?>
 
     @Query("DELETE FROM user_video_ratings WHERE target_type = :type AND target_id = :targetId")
-    suspend fun deleteRating(type: String, targetId: Long)
+    suspend fun deleteRating(type: String, targetId: Long): Int
 
     /** Every episode rating of one show. The join carries the target type: episode 5 is not movie 5. */
     @Query(
@@ -559,7 +566,7 @@ interface VideoDao {
     suspend fun insertWatchlist(row: WatchlistEntity): Long
 
     @Query("DELETE FROM user_video_watchlist WHERE target_type = :type AND target_id = :targetId")
-    suspend fun deleteWatchlist(type: String, targetId: Long)
+    suspend fun deleteWatchlist(type: String, targetId: Long): Int
 
     @Query("SELECT EXISTS(SELECT 1 FROM user_video_watchlist WHERE target_type = :type AND target_id = :targetId)")
     fun observeWatchlisted(type: String, targetId: Long): Flow<Boolean>
@@ -568,7 +575,7 @@ interface VideoDao {
     suspend fun insertFavorite(row: FavoriteEntity): Long
 
     @Query("DELETE FROM user_video_favorites WHERE target_type = :type AND target_id = :targetId")
-    suspend fun deleteFavorite(type: String, targetId: Long)
+    suspend fun deleteFavorite(type: String, targetId: Long): Int
 
     @Query("SELECT EXISTS(SELECT 1 FROM user_video_favorites WHERE target_type = :type AND target_id = :targetId)")
     fun observeFavorited(type: String, targetId: Long): Flow<Boolean>
@@ -698,6 +705,100 @@ interface VideoDao {
             "WHERE w.target_type = 'episode' AND e.show_id = sh.id AND e.runtime IS NULL)",
     )
     suspend fun statsShowBodies(): List<TitleBodyRow>
+
+    // ------------------------------------------------------------------ backup (D-040)
+    // The file's reads: every row of the user's state, joined to its title's TMDB id — the local
+    // id never leaves the database. Each join carries its target type, and a row whose target is
+    // gone is dropped by the join. The columns are aliased to the row classes' field names.
+
+    @Query(
+        "SELECT m.tmdb_id AS tmdbId, m.title AS title, w.watched_at AS watchedAt " +
+            "FROM user_watch_history w JOIN movies m ON m.id = w.target_id WHERE w.target_type = 'movie'",
+    )
+    suspend fun backupMovieWatches(): List<BackupMovieWatchRow>
+
+    @Query(
+        "SELECT sh.tmdb_id AS showTmdbId, sh.title AS showTitle, e.season_number AS season, " +
+            "e.episode_number AS episode, e.tmdb_id AS episodeTmdbId, w.watched_at AS watchedAt " +
+            "FROM user_watch_history w JOIN episodes e ON e.id = w.target_id " +
+            "JOIN shows sh ON sh.id = e.show_id WHERE w.target_type = 'episode'",
+    )
+    suspend fun backupEpisodeWatches(): List<BackupEpisodeWatchRow>
+
+    @Query(
+        "SELECT 'movie' AS type, m.tmdb_id AS tmdbId, m.title AS title, r.rating AS rating, r.updated_at AS at " +
+            "FROM user_video_ratings r JOIN movies m ON m.id = r.target_id WHERE r.target_type = 'movie' " +
+            "UNION ALL " +
+            "SELECT 'show' AS type, sh.tmdb_id AS tmdbId, sh.title AS title, r.rating AS rating, r.updated_at AS at " +
+            "FROM user_video_ratings r JOIN shows sh ON sh.id = r.target_id WHERE r.target_type = 'show'",
+    )
+    suspend fun backupRatings(): List<BackupRatingRow>
+
+    @Query(
+        "SELECT sh.tmdb_id AS showTmdbId, sh.title AS showTitle, e.season_number AS season, " +
+            "e.episode_number AS episode, e.tmdb_id AS episodeTmdbId, r.rating AS rating, r.updated_at AS at " +
+            "FROM user_video_ratings r JOIN episodes e ON e.id = r.target_id " +
+            "JOIN shows sh ON sh.id = e.show_id WHERE r.target_type = 'episode'",
+    )
+    suspend fun backupEpisodeRatings(): List<BackupEpisodeRatingRow>
+
+    @Query(
+        "SELECT 'movie' AS type, m.tmdb_id AS tmdbId, m.title AS title, l.added_at AS at " +
+            "FROM user_video_watchlist l JOIN movies m ON m.id = l.target_id WHERE l.target_type = 'movie' " +
+            "UNION ALL " +
+            "SELECT 'show' AS type, sh.tmdb_id AS tmdbId, sh.title AS title, l.added_at AS at " +
+            "FROM user_video_watchlist l JOIN shows sh ON sh.id = l.target_id WHERE l.target_type = 'show'",
+    )
+    suspend fun backupWatchlist(): List<BackupListRow>
+
+    @Query(
+        "SELECT 'movie' AS type, m.tmdb_id AS tmdbId, m.title AS title, l.added_at AS at " +
+            "FROM user_video_favorites l JOIN movies m ON m.id = l.target_id WHERE l.target_type = 'movie' " +
+            "UNION ALL " +
+            "SELECT 'show' AS type, sh.tmdb_id AS tmdbId, sh.title AS title, l.added_at AS at " +
+            "FROM user_video_favorites l JOIN shows sh ON sh.id = l.target_id WHERE l.target_type = 'show'",
+    )
+    suspend fun backupFavorites(): List<BackupListRow>
+
+    /** Dropped shows; `updated_at` is the drop instant. */
+    @Query(
+        "SELECT 'show' AS type, sh.tmdb_id AS tmdbId, sh.title AS title, st.updated_at AS at " +
+            "FROM user_show_states st JOIN shows sh ON sh.id = st.show_id WHERE st.status = 'dropped'",
+    )
+    suspend fun backupDropped(): List<BackupListRow>
+
+    @Query(
+        "SELECT m.tmdb_id AS tmdbId, m.title AS title, c.kind AS kind, c.added_at AS at " +
+            "FROM user_video_copies c JOIN movies m ON m.id = c.target_id WHERE c.target_type = 'movie'",
+    )
+    suspend fun backupMovieCopies(): List<BackupMovieCopyRow>
+
+    @Query(
+        "SELECT sh.tmdb_id AS showTmdbId, sh.title AS showTitle, se.season_number AS season, " +
+            "c.kind AS kind, c.added_at AS at " +
+            "FROM user_video_copies c JOIN seasons se ON se.id = c.target_id " +
+            "JOIN shows sh ON sh.id = se.show_id WHERE c.target_type = 'season'",
+    )
+    suspend fun backupSeasonCopies(): List<BackupSeasonCopyRow>
+
+    // What an exact restore group clears before it writes the file's rows for one title.
+
+    @Query("DELETE FROM user_video_copies WHERE target_type = :type AND target_id = :targetId")
+    suspend fun deleteTargetCopies(type: String, targetId: Long)
+
+    @Query(
+        "DELETE FROM user_video_copies WHERE target_type = 'season' " +
+            "AND target_id IN (SELECT id FROM seasons WHERE show_id = :showId)",
+    )
+    suspend fun deleteShowCopies(showId: Long)
+
+    /** The episodes of one show the user has rated, by both keys. */
+    @Query(
+        "SELECT e.id AS id, e.season_number AS season_number, e.episode_number AS episode_number, e.tmdb_id AS tmdb_id " +
+            "FROM user_video_ratings r JOIN episodes e ON e.id = r.target_id " +
+            "WHERE r.target_type = 'episode' AND e.show_id = :showId",
+    )
+    suspend fun ratedEpisodeKeys(showId: Long): List<EpisodeKeyRow>
 
     // ------------------------------------------------------------------ delete data
 

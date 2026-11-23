@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import ro.mbyte.sofalog.data.tmdb.TmdbException
+import ro.mbyte.sofalog.domain.BackupParse
 import ro.mbyte.sofalog.domain.Clock
 import ro.mbyte.sofalog.domain.DumpParse
 import ro.mbyte.sofalog.domain.ProviderBreaker
@@ -35,8 +36,11 @@ import ro.mbyte.sofalog.domain.SKIP_MOVIE_UNAVAILABLE
 import ro.mbyte.sofalog.domain.SKIP_PROVIDER_UNAVAILABLE
 import ro.mbyte.sofalog.domain.SKIP_SHOW_NOT_FOUND
 import ro.mbyte.sofalog.domain.SKIP_SHOW_UNAVAILABLE
+import ro.mbyte.sofalog.domain.parseSofalogBackup
 import ro.mbyte.sofalog.domain.parseTicketBoxDump
 import ro.mbyte.sofalog.domain.plus
+import ro.mbyte.sofalog.domain.summary
+import ro.mbyte.sofalog.domain.validateSofalogBackup
 import ro.mbyte.sofalog.domain.validateTicketBoxDump
 import ro.mbyte.sofalog.domain.withSkips
 import java.io.ByteArrayInputStream
@@ -44,7 +48,10 @@ import java.io.ByteArrayOutputStream
 import java.time.Instant
 import kotlin.coroutines.coroutineContext
 
-/** Where the Ticket Box restore page stands. */
+/** Which kind of file a restore page reads. */
+enum class RestoreSource { TICKET_BOX, SOFALOG }
+
+/** Where a restore page stands. Both pages share it: one file, one job, at a time. */
 sealed interface RestoreState {
     /** Nothing picked. [notice] says why the last file was refused. */
     data class Idle(val notice: String = "") : RestoreState
@@ -59,6 +66,10 @@ sealed interface RestoreState {
         val ratings: Int,
         val watchlist: Int,
         val favorites: Int,
+        val source: RestoreSource = RestoreSource.TICKET_BOX,
+        /** The app's own backup only: a Ticket Box file has neither. */
+        val copies: Int = 0,
+        val dropped: Int = 0,
     ) : RestoreState
 
     /** A job: running, or its report once it ended. */
@@ -66,8 +77,9 @@ sealed interface RestoreState {
 }
 
 /**
- * Restoring a Ticket Box backup on the device (D-023). It reads the FILE — nothing here calls
- * Trakt. The job lives in the app's scope: it survives leaving the page and a rotation, not the
+ * Restoring a backup on the device: a Ticket Box export (D-023) or the app's own backup file
+ * (D-040). It reads the FILE — nothing here calls Trakt. The two differ in how the file is parsed
+ * and in what a group replaces; the run itself is one. The job lives in the app's scope: it survives leaving the page and a rotation, not the
  * process. Committed groups stay committed, and the import replaces rather than duplicates, so
  * running the same file again is the recovery for anything that cut it short.
  */
@@ -76,6 +88,8 @@ class RestoreRepository(
     private val writes: RestoreWrites,
     private val clock: Clock,
     private val scope: CoroutineScope,
+    /** The copy kinds the app knows; a backup naming another is skipped, not refused. */
+    private val copyKinds: Set<String> = CopyKind.entries.map { it.value }.toSet(),
 ) {
     private val _state = MutableStateFlow<RestoreState>(RestoreState.Idle())
     val state: StateFlow<RestoreState> = _state
@@ -84,19 +98,22 @@ class RestoreRepository(
     private var running: Job? = null
     private var held: Pair<RestorePlan, List<RestoreSkip>>? = null
 
-    private val isRunning: Boolean
+    private var source: RestoreSource? = null
+
+    val isRunning: Boolean
         get() = (_state.value as? RestoreState.Active)?.job?.state == RESTORE_RUNNING
 
     /** Reads and validates a picked file. Refused while a job runs; a newer pick wins over an older read. */
     @Synchronized
-    fun pick(uri: Uri) {
+    fun pick(uri: Uri, from: RestoreSource = RestoreSource.TICKET_BOX) {
         if (isRunning) return
         reading?.cancel()
         held = null
+        source = from
         _state.value = RestoreState.Reading(null)
         reading = scope.launch(Dispatchers.IO) {
             val next = try {
-                read(uri)
+                read(uri, from)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: OutOfMemoryError) {
@@ -109,7 +126,21 @@ class RestoreRepository(
         }
     }
 
-    private fun read(uri: Uri): RestoreState {
+    /**
+     * A page coming on screen. A file picked on the OTHER page — or that page's refusal notice —
+     * is put away, so this page never offers to import it under its own name. A job is left alone:
+     * there is one, and both pages show it.
+     */
+    @Synchronized
+    fun enter(page: RestoreSource) {
+        if (source == null || source == page || _state.value is RestoreState.Active) return
+        reading?.cancel()
+        held = null
+        source = page
+        _state.value = RestoreState.Idle()
+    }
+
+    private fun read(uri: Uri, from: RestoreSource): RestoreState {
         var name: String? = null
         var size: Long? = null
         resolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { c ->
@@ -133,11 +164,31 @@ class RestoreRepository(
             }
             out.toByteArray()
         } ?: return RestoreState.Idle("That file couldn't be read.")
+        val now = Instant.parse(clock.read().now)
+        if (from == RestoreSource.SOFALOG) {
+            val backup = when (val parsed = parseSofalogBackup { ByteArrayInputStream(bytes) }) {
+                is BackupParse.Rejected -> return RestoreState.Idle(parsed.message)
+                is BackupParse.Ok -> parsed.backup
+            }
+            held = validateSofalogBackup(backup, now, copyKinds)
+            val summary = backup.summary()
+            return RestoreState.Ready(
+                fileName = name ?: "Sofalog backup",
+                exportedAt = backup.exportedAt,
+                watches = summary.watches,
+                ratings = summary.ratings,
+                watchlist = summary.watchlist,
+                favorites = summary.favorites,
+                source = from,
+                copies = summary.copies,
+                dropped = summary.dropped,
+            )
+        }
         val dump = when (val parsed = parseTicketBoxDump { ByteArrayInputStream(bytes) }) {
             is DumpParse.Rejected -> return RestoreState.Idle(parsed.message)
             is DumpParse.Ok -> parsed.dump
         }
-        held = validateTicketBoxDump(dump, Instant.parse(clock.read().now))
+        held = validateTicketBoxDump(dump, now)
         return RestoreState.Ready(
             fileName = name ?: "Ticket Box export",
             exportedAt = dump.exportedAt,
@@ -162,7 +213,7 @@ class RestoreRepository(
         )
         _state.value = RestoreState.Active(job)
         running = scope.launch {
-            runTicketBoxRestore(plan, writes, clock) { change ->
+            runRestore(plan, writes, clock) { change ->
                 _state.update { if (it is RestoreState.Active) RestoreState.Active(change(it.job)) else it }
             }
         }
@@ -190,7 +241,7 @@ class RestoreRepository(
  * counted. After three consecutive outages nothing more is fetched: groups already held still
  * import, the rest are skipped. Every exit path lands in a finished job.
  */
-internal suspend fun runTicketBoxRestore(
+internal suspend fun runRestore(
     plan: RestorePlan,
     writes: RestoreWrites,
     clock: Clock,

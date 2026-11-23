@@ -19,6 +19,8 @@ data class RestoreCounts(
     val ratingsUpserted: Int = 0,
     val watchlistInserted: Int = 0,
     val favoritesInserted: Int = 0,
+    val copiesInserted: Int = 0,
+    val showsDropped: Int = 0,
 )
 
 data class RestoreReport(
@@ -31,6 +33,8 @@ data class RestoreReport(
     val ratingsUpserted: Int = 0,
     val watchlistInserted: Int = 0,
     val favoritesInserted: Int = 0,
+    val copiesInserted: Int = 0,
+    val showsDropped: Int = 0,
     val skippedTotal: Int = 0,
     /** At most [RESTORE_SKIP_CAP] entries; [skippedTotal] always counts them all. */
     val skipped: List<RestoreSkip> = emptyList(),
@@ -47,6 +51,8 @@ operator fun RestoreReport.plus(c: RestoreCounts): RestoreReport = copy(
     ratingsUpserted = ratingsUpserted + c.ratingsUpserted,
     watchlistInserted = watchlistInserted + c.watchlistInserted,
     favoritesInserted = favoritesInserted + c.favoritesInserted,
+    copiesInserted = copiesInserted + c.copiesInserted,
+    showsDropped = showsDropped + c.showsDropped,
 )
 
 data class RestoreCurrent(val type: String, val tmdbId: Long, val title: String?)
@@ -94,6 +100,8 @@ private val SKIP_LABELS = mapOf(
     SKIP_SHOW_UNAVAILABLE to "Show could not be fetched",
     SKIP_PROVIDER_UNAVAILABLE to "TMDB was unreachable",
     SKIP_EPISODE_NOT_FOUND to "Episode not in TMDB's listing",
+    SKIP_UNKNOWN_COPY_KIND to "Unknown kind of copy",
+    SKIP_SEASON_NOT_FOUND to "Season not in TMDB's listing",
 )
 
 fun skipReasonLabel(reason: String): String = SKIP_LABELS[reason] ?: reason.replace('_', ' ')
@@ -119,6 +127,8 @@ private val SKIP_EXPLANATIONS = mapOf(
     SKIP_MOVIE_UNAVAILABLE to "TMDB didn't answer when asked for it. $RERUN",
     SKIP_SHOW_UNAVAILABLE to "TMDB didn't answer when asked for it. $RERUN",
     SKIP_PROVIDER_UNAVAILABLE to "TMDB failed three times in a row, so the import stopped asking. $RERUN",
+    SKIP_UNKNOWN_COPY_KIND to "The file names a format this version of sofalog doesn't know.",
+    SKIP_SEASON_NOT_FOUND to "TMDB no longer lists this season for the show, so the copy has nothing to hang on.",
 )
 
 /** The likely cause of a skip as a sentence, or null when the label says it all. */
@@ -150,6 +160,9 @@ fun skipKindLabel(kind: String): String = when (kind) {
     RESTORE_RATING -> "Rating"
     RESTORE_WATCHLIST -> "Watchlist"
     RESTORE_FAVORITE -> "Favorite"
+    RESTORE_COPY -> "Copy"
+    RESTORE_DROPPED -> "Dropped"
+    RESTORE_TITLE -> "Title"
     else -> kind
 }
 

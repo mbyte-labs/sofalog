@@ -2561,8 +2561,8 @@ start, but the video section is meant to reach it, and the first screen is Up Ne
 **Standalone**
 
 No account and no server. Everything lives on the phone, which makes the phone the only copy — so
-the app offers a **backup file** (export, and import of its own export). The time zone and the
-watch region are **settings of the app**, kept in its own database: the zone follows the device
+the app offers a **backup file** (export, and import of its own export) — described below. The
+time zone and the watch region are **settings of the app**, kept in its own database: the zone follows the device
 until the user picks one ([D-038](#d-038--every-instant-is-stored-in-utc-every-day-is-measured-in-the-users-zone)),
 and the region — an environment variable on a server — is a country picked on the device,
 defaulting to `RO`; changing it costs each tracked title one refetch on its next view, by the same
@@ -2640,6 +2640,27 @@ what a person arriving from Trakt or TMDB needs on day one.
   session id is a secret like the key: it is kept out of the database, encrypted in the app's
   no-backup storage, so no device backup, transfer or backup file carries it; a library restored
   without it shows the link as broken and asks to link again.
+- **The backup file** is one JSON document, `"format": "sofalog-backup"`, `"schemaVersion": 1`,
+  holding the user's state and nothing else: watch history, ratings, watchlist, favorites, dropped
+  shows and hand-set copies. It is **grouped per title and TMDB-addressed** — `movies[]` (each
+  with `watches`, `rating {value, at}`, `watchlistAt`, `favoriteAt`, `copies[]`) and `shows[]`
+  (`rating`, `watchlistAt`, `favoriteAt`, `droppedAt`, `episodes[]` by the episode's own TMDB id
+  **and** its season + number, each with `watches` and `rating`, and `seasonCopies[]` by season
+  number) — with no local id, no catalog data and no artwork; `title` is there for a human reader
+  and is never trusted. Absent means "not there": no nulls, no empty lists. The **settings and the
+  TMDB link are not in it**. Creating one is a consistent read in one transaction, written either
+  into a document the user creates (the system's file picker) or into the app's cache and handed
+  to another app through the share sheet by a `FileProvider` read grant — which is also how it
+  reaches another device. **Restoring one is file-wins-per-title**: every movie and show the file
+  names is replaced by the file's state — watches, ratings, list membership with the file's dates,
+  copies, and the drop, including the removal of what the file lacks — and every title the file
+  does not name is untouched, so a run cut short loses nothing and the same file twice changes
+  nothing. It is the Ticket Box restore's run (same reader discipline: a lenient probe of `format`
+  and `schemaVersion`, then a strict decode; same materialise-outside-the-transaction, one
+  transaction and one recompute per title, breaker, skip-and-report) with the group marked
+  *exact*. A show's status is rebuilt from the restored log by the single writer, then the file's
+  drop is stamped with its own instant. Ratings and list changes still queue for a linked TMDB
+  account, as every local write does; a removal queues only when the row was really there.
 - **The Ticket Box restore** ([D-023](#d-023--a-ticket-box-dump-is-the-one-import-path)) keeps the
   server's rules too — version 5 only with the lenient probe before the strict decode, replace
   only for a group the file has watches for, skip and report with the 200 cap, the breaker after

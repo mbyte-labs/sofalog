@@ -34,6 +34,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,6 +49,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import ro.mbyte.sofalog.R
+import ro.mbyte.sofalog.data.RestoreSource
 import ro.mbyte.sofalog.data.RestoreState
 import ro.mbyte.sofalog.domain.RESTORE_DONE
 import ro.mbyte.sofalog.domain.RESTORE_RUNNING
@@ -72,11 +74,11 @@ import ro.mbyte.sofalog.ui.details.parts.DetailIcons
 private const val TICKET_BOX_URL = "https://github.com/mbyte-labs/ticket-box"
 
 /**
- * Backup & Restore: which backup to restore from, and where creating one will live. Only the
- * Ticket Box restore exists; sofalog's own dump and creating a backup are not built.
+ * Backup & Restore: which backup to restore from, and the way to create one. The app's own backup
+ * file (D-040) is what makes a phone that holds the only copy of a library safe to lose.
  */
 @Composable
-fun RestoreScreen(onMenu: () -> Unit, onTicketBox: () -> Unit) {
+fun RestoreScreen(onMenu: () -> Unit, onTicketBox: () -> Unit, onSofalog: () -> Unit, onBackup: () -> Unit) {
     SettingsPage("Backup & Restore", onMenu) {
         SettingsSectionTitle("Restore backup")
         SettingsNote(
@@ -92,17 +94,21 @@ fun RestoreScreen(onMenu: () -> Unit, onTicketBox: () -> Unit) {
             MarkDisc(R.drawable.ticket_box, 28.dp)
         }
         ActionCard(
-            "Sofalog dump",
-            "Restore a sofalog export archive.",
-            onClick = {},
-            enabled = false,
-            badge = "Coming later",
+            "Sofalog backup",
+            "A backup created by this app: watch history, ratings, watchlist, favorites, dropped shows and your copies.",
+            onSofalog,
         ) {
             MarkDisc(R.drawable.sofalog_mark, 34.dp)
         }
 
         SettingsSectionTitle("Create backup")
-        SettingsNote("Coming soon: save your watch history, ratings, watchlist and favorites to a file.")
+        SettingsNote("This device holds the only copy of your library. A backup file is how you keep another.")
+        ActionCard(
+            DetailIcons.Box,
+            "Create a backup",
+            "Save everything you logged to a file on this device, or send it to another app or device.",
+            onBackup,
+        )
     }
 }
 
@@ -133,12 +139,81 @@ fun TicketBoxRestoreScreen(
     onOpenShow: (Long) -> Unit,
     onOpenSeason: (Long, Int) -> Unit,
 ) {
-    val restore = restoreRepository()
     val uri = LocalUriHandler.current
+    RestoreFlow(
+        source = RestoreSource.TICKET_BOX,
+        title = "Restore a Ticket Box dump",
+        chooseLabel = "Choose a Ticket Box export…",
+        confirmText = "Replace matching history with this file?",
+        onMenu = onMenu,
+        onOpenMovie = onOpenMovie,
+        onOpenShow = onOpenShow,
+        onOpenSeason = onOpenSeason,
+    ) {
+        wide { TicketBoxStory() }
+        wide {
+            ActionCard(
+                "Ticket Box on GitHub",
+                "The source code of the app this backup comes from.",
+                onClick = { uri.openUri(TICKET_BOX_URL) },
+            ) { GitHubMark() }
+        }
+        wide { ImportedCard() }
+        wide { TmdbCard(onAbout) }
+    }
+}
+
+/**
+ * Restoring the app's own backup file (D-040). The file states each title's whole state, so a
+ * title in it is replaced and every other title on the device is left alone.
+ */
+@Composable
+fun SofalogRestoreScreen(
+    onMenu: () -> Unit,
+    onAbout: () -> Unit,
+    onOpenMovie: (Long) -> Unit,
+    onOpenShow: (Long) -> Unit,
+    onOpenSeason: (Long, Int) -> Unit,
+) {
+    RestoreFlow(
+        source = RestoreSource.SOFALOG,
+        title = "Restore a sofalog backup",
+        chooseLabel = "Choose a sofalog backup…",
+        confirmText = "Every movie and show in this file is replaced with the file's state. Everything else on " +
+            "this device stays.",
+        onMenu = onMenu,
+        onOpenMovie = onOpenMovie,
+        onOpenShow = onOpenShow,
+        onOpenSeason = onOpenSeason,
+    ) {
+        wide { BackupImportedCard() }
+        wide { TmdbCard(onAbout) }
+    }
+}
+
+/**
+ * The page both restores share: pick the file, see what it holds, confirm, watch it run, read the
+ * report. [intro] is what the page says before a job starts.
+ */
+@Composable
+private fun RestoreFlow(
+    source: RestoreSource,
+    title: String,
+    chooseLabel: String,
+    confirmText: String,
+    onMenu: () -> Unit,
+    onOpenMovie: (Long) -> Unit,
+    onOpenShow: (Long) -> Unit,
+    onOpenSeason: (Long, Int) -> Unit,
+    intro: LazyGridScope.() -> Unit,
+) {
+    val restore = restoreRepository()
+    // A file picked on the other restore page is not this page's to import.
+    LaunchedEffect(source) { restore.enter(source) }
     val state by restore.state.collectAsStateWithLifecycle()
     var confirmImport by remember { mutableStateOf(false) }
     var confirmStop by remember { mutableStateOf(false) }
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let(restore::pick) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri -> uri?.let { restore.pick(it, source) } }
     // Providers often mislabel a .json file, so the picker is not narrowed to one type.
     val choose = { picker.launch(arrayOf("application/json", "text/plain", "application/octet-stream")) }
     val running = (state as? RestoreState.Active)?.job?.state == RESTORE_RUNNING
@@ -150,7 +225,7 @@ fun TicketBoxRestoreScreen(
         onDispose { view.keepScreenOn = false }
     }
 
-    DetailScaffold("Restore a Ticket Box dump", onMenu, null, {}) { modifier ->
+    DetailScaffold(title, onMenu, null, {}) { modifier ->
         LazyVerticalGrid(
             columns = GridCells.Adaptive(340.dp),
             modifier = modifier,
@@ -159,18 +234,10 @@ fun TicketBoxRestoreScreen(
             verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             when (val s = state) {
-                is RestoreState.Active -> job(s.job, { confirmStop = true }, restore::discard, onOpenMovie, onOpenShow, onOpenSeason)
+                is RestoreState.Active ->
+                    job(s.job, source == RestoreSource.SOFALOG, { confirmStop = true }, restore::discard, onOpenMovie, onOpenShow, onOpenSeason)
                 else -> {
-                    wide { TicketBoxStory() }
-                    wide {
-                        ActionCard(
-                            "Ticket Box on GitHub",
-                            "The source code of the app this backup comes from.",
-                            onClick = { uri.openUri(TICKET_BOX_URL) },
-                        ) { GitHubMark() }
-                    }
-                    wide { ImportedCard() }
-                    wide { TmdbCard(onAbout) }
+                    intro()
                     when (s) {
                         is RestoreState.Ready -> {
                             wide {
@@ -182,6 +249,10 @@ fun TicketBoxRestoreScreen(
                                         Fact("Ratings", s.ratings.toString())
                                         Fact("Watchlist", s.watchlist.toString())
                                         Fact("Favorites", s.favorites.toString())
+                                        if (s.source == RestoreSource.SOFALOG) {
+                                            Fact("Dropped shows", s.dropped.toString())
+                                            Fact("Copies", s.copies.toString())
+                                        }
                                     }
                                 }
                             }
@@ -208,7 +279,7 @@ fun TicketBoxRestoreScreen(
                                             Text("Reading the file…")
                                         }
                                     } else {
-                                        Text("Choose a Ticket Box export…")
+                                        Text(chooseLabel)
                                     }
                                 }
                             }
@@ -225,7 +296,7 @@ fun TicketBoxRestoreScreen(
     if (confirmImport) {
         ConfirmDialog(
             title = "Import this file?",
-            text = "Replace matching history with this file?",
+            text = confirmText,
             confirm = "Yes, import",
             onConfirm = {
                 confirmImport = false
@@ -290,6 +361,23 @@ private fun ImportedCard() {
     }
 }
 
+/** What restoring the app's own backup does to the library, stated before the file is picked. */
+@Composable
+private fun BackupImportedCard() {
+    Card(Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text("What gets restored", style = MaterialTheme.typography.titleSmall)
+            SettingsNote(
+                "Watch history, ratings, watchlist, favorites, dropped shows and your copies. For every " +
+                    "movie or show in the file, what this device holds for it is replaced by what the file " +
+                    "says — including removing what the file does not have. Movies and shows that are not " +
+                    "in the file are not touched, so restoring the same file twice changes nothing.",
+            )
+            SettingsNote("Your settings and your TMDB account link are not part of a backup.")
+        }
+    }
+}
+
 /**
  * What TMDB is asked for during a restore. It explains the use and shows the logo; the attribution
  * notice itself lives on About alone, which the button leads to.
@@ -334,6 +422,7 @@ private fun Fact(label: String, value: String) {
 
 private fun LazyGridScope.job(
     job: RestoreJob,
+    ownBackup: Boolean,
     onStop: () -> Unit,
     onAnother: () -> Unit,
     onOpenMovie: (Long) -> Unit,
@@ -367,11 +456,14 @@ private fun LazyGridScope.job(
             }
         }
     }
+    // Dropped shows and copies exist in the app's own backup only.
+    val own = if (ownBackup) listOf("Shows marked dropped" to r.showsDropped, "Copies added" to r.copiesInserted) else emptyList()
     val counters = listOf(
         "Watches added" to r.historyInserted,
         "Ratings set" to r.ratingsUpserted,
         "Watchlist entries added" to r.watchlistInserted,
         "Favorites added" to r.favoritesInserted,
+    ) + own + listOf(
         "Movies added to the library (of ${r.moviesTotal} in the file)" to r.moviesMaterialised,
         "Shows added to the library (of ${r.showsTotal} in the file)" to r.showsMaterialised,
         "Existing watches replaced" to r.historyReplaced,

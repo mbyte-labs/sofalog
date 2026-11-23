@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
 import kotlinx.coroutines.CancellationException
 import ro.mbyte.sofalog.SofalogApp
+import ro.mbyte.sofalog.data.BackupRepository
 import ro.mbyte.sofalog.data.RestoreRepository
 import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.data.tmdbaccount.TmdbAccountService
@@ -57,6 +58,9 @@ fun tmdbAccount(): TmdbAccountService = (LocalContext.current.applicationContext
 
 @Composable
 fun restoreRepository(): RestoreRepository = (LocalContext.current.applicationContext as SofalogApp).restore
+
+@Composable
+fun backupRepository(): BackupRepository = (LocalContext.current.applicationContext as SofalogApp).backup
 
 /** runCatching that lets coroutine cancellation through. */
 suspend fun <T> attempt(block: suspend () -> T): Result<T> = try {

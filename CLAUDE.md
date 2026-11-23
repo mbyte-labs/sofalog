@@ -844,7 +844,14 @@ TMDB-addressed outbox filled by `VideoRepository.mirror` inside each write's tra
 only while the app is on screen, the setup's pull through the no-enqueue `pull*` methods, and the
 session id kept OUT of Room in `TmdbSessionStore` (encrypted, no-backup storage; never logged) —
 and `data/RestoreRepository.kt` ports D-023 over the pure rules in `domain/TicketBoxDump.kt` and
-`domain/RestorePlan.kt`. Their shared cases are `tmdb-sync.json` and `ticket-box-restore.json`. Delivery is three
+`domain/RestorePlan.kt`. Their shared cases are `tmdb-sync.json` and `ticket-box-restore.json`. **The app's own backup file is built** (D-040): `domain/Backup.kt` is the format
+(`sofalog-backup`, version 1 — history, ratings, watchlist, favorites, dropped shows and copies,
+grouped per title, TMDB-addressed, never the settings or the TMDB link) with its reader and
+`validateSofalogBackup`, and `data/BackupRepository.kt` writes it to a picked document or, for
+the share sheet, to `cacheDir/backups` behind the manifest's `FileProvider`. Restoring one is the
+Ticket Box run (`RestoreRepository`, `RestoreSource.SOFALOG`) with every group **exact**: a title
+in the file is replaced by the file's state, what the file lacks is removed, and a title the file
+does not name is untouched — keep `exact = false` meaning today's Ticket Box semantics. Delivery is three
 phases — standalone app, then the server side (tokens, `episodes.tmdb_id`, snapshot, command
 batch), then linking. **Phase 1's first slice is built** (Room database, TMDB client, Up Next,
 search, movie/show/season/episode pages, marking and bulk marking, watch removal; the movie and show
