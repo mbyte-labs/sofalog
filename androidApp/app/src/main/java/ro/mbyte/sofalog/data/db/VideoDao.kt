@@ -183,6 +183,33 @@ private const val LIST_JOINS =
         "LEFT JOIN shows sh ON l.target_type = 'show' AND sh.id = l.target_id " +
         "WHERE (m.id IS NOT NULL OR sh.id IS NOT NULL)"
 
+/** One tracked movie as the catalog refresh sees it (`domain/CatalogRefresh.kt`). */
+data class RefreshMovieRow(
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    @ColumnInfo(name = "fetched_at") val fetchedAt: String,
+    /** On the watchlist or a favorite. */
+    val listed: Boolean,
+    val watched: Boolean,
+)
+
+/** One tracked show as the catalog refresh sees it. */
+data class RefreshShowRow(
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    @ColumnInfo(name = "fetched_at") val fetchedAt: String,
+    @ColumnInfo(name = "show_status") val showStatus: String?,
+    val listed: Boolean,
+    /** A state row that is not dropped: the log holds an episode watch and the user did not give up. */
+    val followed: Boolean,
+)
+
+/** A season of a followed show holding an episode that aired inside a recent window. */
+data class AiredSeasonRow(
+    @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
+    @ColumnInfo(name = "fetched_at") val fetchedAt: String,
+    /** The latest air date in the window, YYYY-MM-DD. */
+    @ColumnInfo(name = "last_aired") val lastAired: String,
+)
+
 /** What the library holds about one title, by its TMDB id: a search card's marks. */
 data class LibraryMarkRow(
     @ColumnInfo(name = "tmdb_id") val tmdbId: Long,
@@ -337,6 +364,53 @@ interface VideoDao {
             "FROM shows sh WHERE sh.tmdb_id IN (:tmdbIds)",
     )
     fun observeShowMarks(tmdbIds: List<Long>): Flow<List<LibraryMarkRow>>
+
+    // ---- the catalog refresh's work list: every tracked title with what refers to it. The rule
+    // that picks from it is Kotlin's (`dueForRefresh`); every probe carries its target type.
+    @Query(
+        "SELECT m.tmdb_id AS tmdb_id, m.fetched_at AS fetched_at, " +
+            "(EXISTS(SELECT 1 FROM user_video_watchlist wl " +
+            "WHERE wl.target_type = 'movie' AND wl.target_id = m.id) " +
+            "OR EXISTS(SELECT 1 FROM user_video_favorites f " +
+            "WHERE f.target_type = 'movie' AND f.target_id = m.id)) AS listed, " +
+            "EXISTS(SELECT 1 FROM user_watch_history w " +
+            "WHERE w.target_type = 'movie' AND w.target_id = m.id) AS watched " +
+            "FROM movies m ORDER BY m.id",
+    )
+    suspend fun refreshMovieRows(): List<RefreshMovieRow>
+
+    @Query(
+        "SELECT sh.tmdb_id AS tmdb_id, sh.fetched_at AS fetched_at, sh.show_status AS show_status, " +
+            "(EXISTS(SELECT 1 FROM user_video_watchlist wl " +
+            "WHERE wl.target_type = 'show' AND wl.target_id = sh.id) " +
+            "OR EXISTS(SELECT 1 FROM user_video_favorites f " +
+            "WHERE f.target_type = 'show' AND f.target_id = sh.id)) AS listed, " +
+            "EXISTS(SELECT 1 FROM user_show_states st " +
+            "WHERE st.show_id = sh.id AND st.status <> 'dropped') AS followed " +
+            "FROM shows sh ORDER BY sh.id",
+    )
+    suspend fun refreshShowRows(): List<RefreshShowRow>
+
+    /**
+     * The seasons of followed shows with an episode dated within [since, today]. Whether that
+     * episode aired since the season's snapshot is Kotlin's to say (`airedSinceFetch`): it takes
+     * the day `fetched_at` falls on in the user's zone. Specials are out, and so is a season
+     * that was never fetched on its own — nothing here would ever date it.
+     */
+    @Query(
+        "SELECT sh.tmdb_id AS tmdb_id, s.fetched_at AS fetched_at, MAX(e.air_date) AS last_aired " +
+            "FROM seasons s JOIN shows sh ON sh.id = s.show_id JOIN episodes e ON e.season_id = s.id " +
+            "WHERE s.season_number > 0 AND s.fetched_at IS NOT NULL " +
+            "AND e.air_date >= :since AND e.air_date <= :today " +
+            "AND EXISTS(SELECT 1 FROM user_show_states st " +
+            "WHERE st.show_id = s.show_id AND st.status <> 'dropped') " +
+            "GROUP BY s.id ORDER BY s.id",
+    )
+    suspend fun recentlyAiredSeasons(since: String, today: String): List<AiredSeasonRow>
+
+    /** The shows the status sweep recomputes: a state row exists iff the log holds an episode watch. */
+    @Query("SELECT show_id FROM user_show_states WHERE status <> 'dropped' ORDER BY show_id")
+    suspend fun followedShowIds(): List<Long>
 
     @Update
     suspend fun updateShow(show: ShowEntity)

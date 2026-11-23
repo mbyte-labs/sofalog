@@ -393,7 +393,11 @@ watchlist** — the two selections are disjoint, and a watchlist row always mean
 per show `RefreshShow` (root + NEW seasons) and then the show's **open seasons** only — the
 highest-numbered one plus any non-special season with an undated or future episode, computed AFTER
 the root refresh so a season it just materialised is not fetched twice; a closed season is never
-re-fetched by the job. Selection SQL lives in `refresh/store_refresh.go`; a class picks a compile-time query,
+re-fetched by the job. **The active job has one arm that is not a cutoff**: a followed show with a
+non-special episode that aired since its season's snapshot (`recentlyAiredSeasons` +
+`airedSinceFetch`, the day compared in Go in the server's default zone) joins the pass whatever its
+age and that season is refetched with it; a snapshot from the air day counts as current, so one
+refetch ends it. Selection SQL lives in `refresh/store_refresh.go`; a class picks a compile-time query,
 never a spliced fragment. Every tick ends with the **status sweep** (`runStatusSweep`):
 `RecomputeShowStatus` for every non-dropped (user, show) pair holding a state row or an episode watch
 — D-010's whole-table pass, done as a loop over the scoped single writer so there is still exactly
@@ -811,7 +815,11 @@ snapshot** — it never merges, and nothing on the wire is a local id. Pairing i
 as a QR code on a SPA Devices page. The Up Next / status / aired / upcoming / stats rules exist in
 Go **and** Kotlin and are held together by shared JSON fixtures both test suites run: change a
 rule on one side, change the fixture and the other side. **No background work, notifications or
-widgets; no games; no Jellyfin or matching screens.** **Settings is built** (`ui/settings/`, drawer
+widgets; no games; no Jellyfin or matching screens.** **The catalog refresh runs in the
+foreground** (`data/CatalogRefresher.kt`, started and stopped by `MainActivity.onStart` /
+`onStop`): D-025's two classes picked by `domain/CatalogRefresh.kt` from each row's `fetched_at`,
+ticked on coming on screen and every six hours while there — the aired-since arm included, in the
+user's zone — each tick ending with the local status sweep — it is what returns a finished show to Up Next when a new season is announced. **Settings is built** (`ui/settings/`, drawer
 entry "Settings"): About (the app's Data Sources: logo and version, the story, where the data lives, community links, and the one home of the TMDB notice), the time zone and the where-to-watch country (a `settings` table;
 `domain/UserZone.kt`'s `UserZone` and `WatchRegion` are the ONE place the rest of the app reads
 them — never `ZoneId.systemDefault()` or the `WATCH_REGION` default directly), with Users and Log

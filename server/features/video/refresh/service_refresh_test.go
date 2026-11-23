@@ -221,6 +221,68 @@ func TestDueOpenSeasons(t *testing.T) {
 	}
 }
 
+func TestRecentlyAiredSeasons(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	database := videotest.DB(t)
+	alice := videotest.SeedUser(t, database, "alice")
+	since, today := "2026-08-12", "2026-08-19"
+
+	seed := func(tmdbID int64, state string, season int, dates ...string) int64 {
+		id := videotest.SeedShow(t, database, tmdbID, "S")
+		if state != "" {
+			videotest.SeedShowStatus(t, database, alice, id, state)
+		}
+		videotest.SeedSeasonSnapshot(t, database, id, tmdbID, season, nil, "{}")
+		for i, d := range dates {
+			videotest.SeedEpisode(t, database, id, season, i+1, videotest.Ptr(d))
+		}
+		return id
+	}
+	followed := seed(1, "watched", 2, "2026-08-05", "2026-08-12", "2026-08-19", "2026-08-26")
+	seed(2, "dropped", 1, "2026-08-19")  // nobody still follows it
+	seed(3, "", 1, "2026-08-19")         // never started
+	seed(4, "watching", 0, "2026-08-19") // a special
+	seed(5, "watching", 1, "2026-08-11") // aired before the window
+	seed(6, "watching", 1, "2026-08-20") // not aired yet
+
+	got, err := recentlyAiredSeasons(ctx, database, since, today)
+	if err != nil {
+		t.Fatalf("recentlyAiredSeasons: %v", err)
+	}
+	want := []airedSeason{{showID: followed, showTMDBID: 1, season: 2, fetchedAt: "2026-08-18T00:00:00Z", lastAired: "2026-08-19"}}
+	if !slices.Equal(got, want) {
+		t.Errorf("recentlyAiredSeasons = %+v, want %+v", got, want)
+	}
+}
+
+func TestAiredSinceFetch(t *testing.T) {
+	t.Parallel()
+	bucharest, err := time.LoadLocation("Europe/Bucharest")
+	if err != nil {
+		t.Fatal(err)
+	}
+	tests := []struct {
+		name      string
+		fetchedAt string
+		lastAired string
+		loc       *time.Location
+		want      bool
+	}{
+		{"fetched the day before", "2026-08-18T10:00:00Z", "2026-08-19", time.UTC, true},
+		{"fetched on the air day", "2026-08-19T00:05:00Z", "2026-08-19", time.UTC, false},
+		{"fetched after it aired", "2026-08-20T00:00:00Z", "2026-08-19", time.UTC, false},
+		// 22:30 UTC on the 18th is already the 19th in Bucharest.
+		{"the day is the server zone's, not UTC's", "2026-08-18T22:30:00Z", "2026-08-19", bucharest, false},
+		{"an unreadable instant is stale", "", "2026-08-19", time.UTC, true},
+	}
+	for _, tt := range tests {
+		if got := airedSinceFetch(tt.fetchedAt, tt.lastAired, tt.loc); got != tt.want {
+			t.Errorf("%s: airedSinceFetch = %v, want %v", tt.name, got, tt.want)
+		}
+	}
+}
+
 // refreshService is detailsService with the two intervals set so the seeds
 // (36h old) are due for both classes.
 func refreshService(t *testing.T, stub *videotest.ProviderStub) (*Service, *time.Time) {
@@ -341,6 +403,45 @@ func TestRunRefreshPass(t *testing.T) {
 		}
 		if got := videotest.ShowStatus(t, svc.DB, alice, showID); got != "watching" {
 			t.Errorf("status after the sweep = %q, want watching — season 2 aired", got)
+		}
+	})
+
+	t.Run("an episode that aired since the snapshot refetches a show that is not otherwise due", func(t *testing.T) {
+		t.Parallel()
+		stub := &videotest.ProviderStub{Bodies: map[string]string{"/3/tv/1396": videotest.ShowWithSeasonBody}}
+		svc, _ := refreshService(t, stub)
+		alice := videotest.SeedUser(t, svc.DB, "alice")
+		showID := videotest.SeedShow(t, svc.DB, 1396, "Old title")
+		videotest.SeedShowStatus(t, svc.DB, alice, showID, "watching")
+		// Fetched yesterday (the seed's 2026-08-18), far inside the week; season 1
+		// is closed, season 2 holds an episode dated today.
+		videotest.SeedSeasonSnapshot(t, svc.DB, showID, 1396, 1, nil, `{"episodes": []}`)
+		videotest.SeedEpisode(t, svc.DB, showID, 1, 1, videotest.Ptr("2008-01-20"))
+		two := videotest.SeedSeasonSnapshot(t, svc.DB, showID, 1396, 2, nil, `{"episodes": []}`)
+		videotest.SeedEpisode(t, svc.DB, showID, 2, 1, videotest.Ptr("2026-08-19"))
+
+		var breaker common.ProviderBreaker
+		rep := svc.runRefreshPass(ctx, RefreshActive, refreshWeek, &breaker)
+		if rep.Shows != 1 || rep.Seasons != 1 || rep.Failed != 0 {
+			t.Fatalf("report = %+v, want the show and its aired season", rep)
+		}
+		if n := stub.CallCount("/3/tv/1396"); n != 2 {
+			t.Errorf("tv calls = %d, want 2 (root, season 2)", n)
+		}
+		show, err := common.GetShowByID(ctx, svc.DB, showID)
+		if err != nil || show.FetchedAt != "2026-08-19T12:00:00Z" {
+			t.Errorf("show = %+v (%v), want fetched_at moved to the clock", show, err)
+		}
+
+		// One refetch ends the arm: the snapshot is now from the air day.
+		rep = svc.runRefreshPass(ctx, RefreshActive, refreshWeek, &breaker)
+		if rep.Shows != 0 || rep.Seasons != 0 {
+			t.Fatalf("second pass = %+v, want nothing", rep)
+		}
+		// It rides the active job only.
+		ageSnapshot(t, svc.DB, "seasons", two, "2026-08-18T00:00:00Z")
+		if rep := svc.runRefreshPass(ctx, RefreshArchive, refreshWeek, &breaker); rep.Shows != 0 {
+			t.Fatalf("archive pass = %+v, want nothing", rep)
 		}
 	})
 

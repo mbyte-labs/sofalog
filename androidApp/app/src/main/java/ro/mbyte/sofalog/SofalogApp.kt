@@ -7,6 +7,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import okhttp3.OkHttpClient
+import ro.mbyte.sofalog.data.CatalogRefresher
 import ro.mbyte.sofalog.data.RestoreRepository
 import ro.mbyte.sofalog.data.VideoRepository
 import ro.mbyte.sofalog.data.db.AppDatabase
@@ -18,8 +19,9 @@ import ro.mbyte.sofalog.domain.Clock
 /** Holds the app's few long-lived objects. Wiring is by hand; there is no DI framework. */
 class SofalogApp : Application() {
     /**
-     * For work that must outlive a screen — a restore, the TMDB setup's import, the outbox. It
-     * lives as long as the process and no longer: the app does no background work (SPEC D-040).
+     * For work that must outlive a screen — a restore, the TMDB setup's import, the outbox, the
+     * catalog refresh. It lives as long as the process and no longer: the app does no background
+     * work (SPEC D-040).
      */
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -40,6 +42,9 @@ class SofalogApp : Application() {
             appScope.launch { service.reconcile() }
         }
     }
+
+    /** Re-fetches stale snapshots while the app is on screen; started and stopped by the activity. */
+    val catalogRefresh: CatalogRefresher by lazy { CatalogRefresher(repository, appScope) }
 
     val restore: RestoreRepository by lazy {
         RestoreRepository(contentResolver, repository, Clock.System, appScope)

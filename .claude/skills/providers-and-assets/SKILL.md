@@ -81,6 +81,9 @@ If a read path over existing local data can return 503 from a provider, the desi
      archive = watched movies + followed `Ended`/`Canceled` shows, none watchlisted (queries in the
      `sofalog-schema` skill). Selection is across all users — one user dropping a show must not
      starve another's calendar. There is no last-run state: the row timestamp is the schedule.
+     The active job also takes, whatever its age, a followed show with a non-special episode that
+     aired since its season's snapshot (`recentlyAiredSeasons` + `airedSinceFetch`), and refetches
+     that season with the open ones.
   2. **Update the catalog** — a movie through `RefreshMovie` + the asset reconcile; a show through
      `RefreshShow` (root + seasons TMDB added since) and then its **open** seasons only (highest,
      or non-special with an undated/future episode) via `RefreshSeason`, which rewrites

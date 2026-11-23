@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -175,7 +176,9 @@ func (s *Service) runRefreshTick(ctx context.Context) {
 // reconcile. Per show it is RefreshShow (root + any season TMDB has added since)
 // followed by the show's open seasons — computed AFTER the root refresh, so a
 // season the root just materialised, with a fresh fetched_at, is not fetched
-// twice. RefreshSeason reconciles the show's assets itself, so the extra sync
+// twice. The active class also takes every followed show holding an episode
+// that aired since its season's snapshot, whatever the show's age, and
+// refetches that season with the open ones. RefreshSeason reconciles the show's assets itself, so the extra sync
 // runs only when no season did. No fetch ever sits inside a transaction
 // (writeShow's WAL note), and no status is recomputed here: the sweep at the
 // end of the tick covers every show at once.
@@ -238,16 +241,44 @@ func (s *Service) runRefreshPass(ctx context.Context, class refreshClass, every 
 		slog.Error("refresh: listing due shows", "class", class, "err", err)
 		return rep
 	}
+	work := make([]int64, 0, len(shows))
+	listed := make(map[int64]bool, len(shows))
 	for _, sh := range shows {
+		work = append(work, sh.TMDBID)
+		listed[sh.ID] = true
+	}
+	// The active job's one arm that is not a cutoff: a followed show whose
+	// episode aired since its season was fetched joins the pass whatever its
+	// age, and that season is refetched with it. A failure here costs only
+	// the arm — the cutoff's own list still runs.
+	airedSeasons := map[int64][]int{}
+	if class == RefreshActive {
+		since := tz.Day(now.Add(-every), s.DefaultLocation())
+		recent, err := recentlyAiredSeasons(ctx, s.DB, since, today)
+		if err != nil {
+			slog.Error("refresh: listing recently aired seasons", "err", err)
+		}
+		for _, a := range recent {
+			if !airedSinceFetch(a.fetchedAt, a.lastAired, s.DefaultLocation()) {
+				continue
+			}
+			airedSeasons[a.showID] = append(airedSeasons[a.showID], a.season)
+			if !listed[a.showID] {
+				listed[a.showID] = true
+				work = append(work, a.showTMDBID)
+			}
+		}
+	}
+	for _, tmdbID := range work {
 		if stop() {
 			return rep
 		}
-		key := fmt.Sprintf("show %d", sh.TMDBID)
+		key := fmt.Sprintf("show %d", tmdbID)
 		if s.refresh.suppressed(key, now) {
 			rep.Skipped++
 			continue
 		}
-		fresh, err := s.RefreshShow(ctx, sh.TMDBID)
+		fresh, err := s.RefreshShow(ctx, tmdbID)
 		breaker.Observe(err)
 		if err != nil {
 			// A root that will not fetch takes its seasons with it: they would
@@ -264,12 +295,17 @@ func (s *Service) runRefreshPass(ctx context.Context, class refreshClass, every 
 			s.SyncShowAssets(ctx, fresh)
 			continue
 		}
+		if extra := airedSeasons[fresh.ID]; len(extra) > 0 {
+			open = append(open, extra...)
+			slices.Sort(open)
+			open = slices.Compact(open)
+		}
 		refreshed := 0
 		for _, n := range open {
 			if stop() {
 				break
 			}
-			seasonKey := fmt.Sprintf("show %d season %d", sh.TMDBID, n)
+			seasonKey := fmt.Sprintf("show %d season %d", tmdbID, n)
 			if s.refresh.suppressed(seasonKey, now) {
 				rep.Skipped++
 				continue
@@ -291,6 +327,19 @@ func (s *Service) runRefreshPass(ctx context.Context, class refreshClass, every 
 		}
 	}
 	return rep
+}
+
+// airedSinceFetch reports whether an episode dated lastAired (YYYY-MM-DD)
+// aired after the snapshot taken at fetchedAt: the snapshot's day, read in
+// loc, is strictly before the air date. A snapshot taken ON the air day
+// counts as current, which is also what ends the arm — one refetch moves
+// fetched_at to today. An unreadable instant counts as stale.
+func airedSinceFetch(fetchedAt, lastAired string, loc *time.Location) bool {
+	t, err := time.Parse(time.RFC3339, fetchedAt)
+	if err != nil {
+		return true
+	}
+	return tz.Day(t, loc) < lastAired
 }
 
 // runStatusSweep recomputes every followed show's status for every follower —

@@ -174,6 +174,18 @@ held to the server by `fixtures/video-rules/upcoming.json` (`UpcomingFixturesTes
 folded run) or the movie. On a phone the filters sit behind the top bar's toggle; from 840dp they
 stay on screen in one row.
 
+**Snapshots stay fresh without opening a page** (`data/CatalogRefresher.kt`, the server's
+scheduled refresh — SPEC D-025 — on the device). When the app comes on screen, and every six hours
+while it stays there, a tick re-fetches the titles `domain/CatalogRefresh.kt` picks by their own
+`fetched_at`: weekly for anything on the watchlist or a favorite and for followed shows still in
+production, every ninety days for watched movies and followed shows that ended — and, whatever
+its age, a followed show with an episode that aired since its season was last fetched, so a moved
+date or a newly announced episode arrives on air day. A show's refresh
+brings in any new season, which is what puts a finished show back on Up Next when the next season
+is announced. Every tick ends with the local status sweep, a tick that finished is not repeated
+for fifteen minutes, three outages in a row abandon fetching until the next one, and leaving the
+app cancels it — this is not background work. Until the app is opened, nothing is fetched.
+
 Not yet: check-in, the person page, the app's own backup file, and everything about linking to a
 server.
 

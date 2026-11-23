@@ -53,6 +53,10 @@ import ro.mbyte.sofalog.domain.DiscoverFilters
 import ro.mbyte.sofalog.domain.GenreOption
 import ro.mbyte.sofalog.domain.LanguageOption
 import ro.mbyte.sofalog.domain.RankedRow
+import ro.mbyte.sofalog.domain.ACTIVE_REFRESH_INTERVAL
+import ro.mbyte.sofalog.domain.RefreshCandidate
+import ro.mbyte.sofalog.domain.airedSinceFetch
+import ro.mbyte.sofalog.domain.showEnded
 import ro.mbyte.sofalog.domain.discoverParams
 import ro.mbyte.sofalog.domain.languageOptions
 import ro.mbyte.sofalog.domain.mergeByPopularity
@@ -295,7 +299,7 @@ class VideoRepository(
     private val db: AppDatabase,
     private val tmdb: TmdbClient,
     private val clock: Clock,
-) : RestoreWrites {
+) : RestoreWrites, CatalogRefreshWrites {
     private val dao = db.videoDao()
     private val settings = db.settingsDao()
     private val sync = db.tmdbSyncDao()
@@ -601,6 +605,12 @@ class VideoRepository(
         val movie = dao.movieByTmdbId(tmdbId) ?: return
         val age = runCatching { Duration.between(Instant.parse(movie.fetchedAt), Instant.now()) }.getOrNull()
         if (age != null && age < STALE_AFTER && !movieSnapshotIncomplete(movie.metadataJson)) return
+        refreshMovie(tmdbId)
+    }
+
+    /** Re-fetches a tracked movie whatever its age: the catalog refresh's per-movie step. */
+    override suspend fun refreshMovie(tmdbId: Long) {
+        val movie = dao.movieByTmdbId(tmdbId) ?: return
         val fetched = tmdb.movie(tmdbId)
         dao.updateMovie(fetched.toEntity(id = movie.id, now = clock.read().now))
     }
@@ -837,13 +847,32 @@ class VideoRepository(
             db.withTransaction { recompute(show.id, clock.read()) }
             return
         }
+        refreshShow(tmdbId)
+    }
+
+    /**
+     * Re-fetches a tracked show whatever its age — the catalog refresh's per-show step, and what
+     * a stale page view runs: the root, any season the device did not have, and the open seasons.
+     * A new season materialised here is what brings a finished show back to Up Next.
+     */
+    override suspend fun refreshShow(tmdbId: Long) {
+        val show = dao.showByTmdbId(tmdbId) ?: return
         val root = tmdb.show(tmdbId)
         val reading = clock.read()
-        val held = dao.seasons(show.id).map { it.seasonNumber }.toSet()
+        val fetchedBySeason = dao.seasons(show.id).associate { it.seasonNumber to it.fetchedAt }
+        val held = fetchedBySeason.keys
         val episodes = dao.episodes(show.id)
         val latest = root.value.seasons.maxOfOrNull { it.seasonNumber }
+        // Open: an undated or future episode — or one that aired since the season's own snapshot,
+        // the day its dates and what follows it are most likely to have moved.
         val open = episodes
-            .filter { it.seasonNumber > 0 && (it.airDate == null || it.airDate > reading.today) }
+            .filter { episode ->
+                val fetched = fetchedBySeason[episode.seasonNumber]
+                episode.seasonNumber > 0 && (
+                    episode.airDate == null || episode.airDate > reading.today ||
+                        (fetched != null && airedSinceFetch(fetched, episode.airDate, UserZone.current))
+                    )
+            }
             .map { it.seasonNumber }.toSet()
         val wanted = root.value.seasons.map { it.seasonNumber }
             .filter { it !in held || it == latest || it in open }
@@ -1061,6 +1090,42 @@ class VideoRepository(
             next == null -> if (current != null) dao.deleteShowState(showId)
             next.value != current?.status ->
                 dao.upsertShowState(ShowStateEntity(showId, next.value, reading.now))
+        }
+    }
+
+    /** Every tracked title with what refers to it: the catalog refresh picks the due ones. */
+    override suspend fun refreshCandidates(): RefreshCandidates {
+        // Older than the active interval is the cutoff's own business; the window only has to
+        // reach back that far.
+        val today = clock.read().today
+        val since = LocalDate.parse(today).minusDays(ACTIVE_REFRESH_INTERVAL.toDays()).toString()
+        val aired = dao.recentlyAiredSeasons(since, today)
+            .filter { airedSinceFetch(it.fetchedAt, it.lastAired, UserZone.current) }
+            .map { it.tmdbId }.toSet()
+        return RefreshCandidates(
+            movies = dao.refreshMovieRows().map {
+                RefreshCandidate(it.tmdbId, it.fetchedAt, listed = it.listed, held = it.watched, ended = true)
+            },
+            shows = dao.refreshShowRows().map {
+                RefreshCandidate(
+                    tmdbId = it.tmdbId,
+                    fetchedAt = it.fetchedAt,
+                    listed = it.listed,
+                    held = it.followed,
+                    ended = showEnded(it.showStatus),
+                    airedSinceFetch = it.tmdbId in aired,
+                )
+            },
+        )
+    }
+
+    /**
+     * The status sweep: recomputes every followed show against today. It needs no network, and is
+     * what flips `watched` back to `watching` when an episode aired with nothing fetched.
+     */
+    override suspend fun recomputeFollowedShows() {
+        for (showId in dao.followedShowIds()) {
+            db.withTransaction { recompute(showId, clock.read()) }
         }
     }
 

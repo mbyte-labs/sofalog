@@ -1843,7 +1843,7 @@ is for (D-022's argument).
 ### D-025 — two refresh jobs, split by current interest, on the row timestamp
 
 The scheduled TMDB refresh ([D-006](#d-006--exactly-one-scheduled-job-exists)) was pulled forward from M2 and shipped as **two jobs on
-one hourly loop**, each with its own interval. Eight rules hold it:
+one hourly loop**, each with its own interval. Nine rules hold it:
 
 - **Two jobs, two intervals.** The **active** job (`TMDB_REFRESH_INTERVAL`, default 7 days) covers
   every movie and show on **anyone's** watchlist or among anyone's favorites (D-030), plus every
@@ -1875,6 +1875,17 @@ one hourly loop**, each with its own interval. Eight rules hold it:
   closed season is never re-fetched by the job; the season page's 48h rule still covers it on view.
   Open seasons are computed **after** the root refresh so a season the root just materialised is not
   fetched twice.
+- **An episode that aired since the snapshot refreshes its show whatever the age.** The active job
+  carries one arm that is not a cutoff: a followed show holding a non-special episode dated after
+  the day its season was last fetched, and on or before today, joins the pass, and that season is
+  refetched with it. Air day is when a stale snapshot is most visible — a date TMDB moved after the
+  last fetch reads as aired, and an episode announced since is missing, so the show would leave
+  Up Next once the aired one is watched. Both days are read in the server's default zone (the job
+  has no user), compared in Go because no portable SQL knows the day an instant falls on. A
+  snapshot taken on the air day counts as current, so one refetch ends the arm, and because it
+  moves `fetched_at` it restarts the interval rather than adding to it: a weekly show still costs
+  about one fetch a week, now on the day it airs. It rides the active job only — `0` there turns
+  it off — and it is the one case an `Ended` show is fetched outside the archive cadence.
 - **The status sweep is local and hourly.** Every tick ends by running `RecomputeShowStatus` for
   every non-dropped (user, show) pair holding a state row or an episode watch — D-010's whole-table
   pass, done as a loop over the scoped single writer so there is still exactly one recompute in the
@@ -1891,7 +1902,9 @@ say what is due. **Rejected:** per-user selection — the catalog is shared, so 
 **Rejected:** re-fetching every season of a selected show; a twenty-season show would cost
 twenty-one calls a week to learn nothing. **Rejected:** a recency window on watched movies (the
 original sketch refreshed only those released in the last two years) — the archive cadence makes
-the distinction unnecessary and the rule simpler.
+the distinction unnecessary and the rule simpler. **Rejected:** a stored "next episode air date"
+on the show to drive the aired-since arm — the episode rows already hold every date, and a second
+copy would need its own refresh.
 
 ### D-026 — the upcoming calendar is a day agenda over followed and watchlisted items
 
@@ -2536,6 +2549,14 @@ start, but the video section is meant to reach it, and the first screen is Up Ne
   same single-home rule the SPA follows.
 - **No background work.** No scheduled sync, no push, no notifications, no widgets. The app talks
   to anything only while it is open; "on open" includes returning to the foreground.
+- **The catalog refresh runs on the device, in the foreground.** D-025's two classes — active
+  (7 days: anything on the watchlist or a favorite, plus followed shows still in production) and
+  archive (90 days: watched movies and followed shows that ended) — selected by each row's
+  `fetched_at`, ticked when the app comes on screen and every six hours while it stays there, and
+  cancelled when it leaves, with D-025's aired-since arm read in the user's zone. Every tick ends
+  with the local status sweep. It is what brings a
+  finished show back to Up Next when a new season is announced; the intervals are constants, not
+  settings.
 
 **Standalone**
 

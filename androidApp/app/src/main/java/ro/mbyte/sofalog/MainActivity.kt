@@ -35,13 +35,17 @@ class MainActivity : ComponentActivity() {
         app.tmdbAccount.onLinkReturn(intent.dataString)
     }
 
-    // What is queued for the user's TMDB account is sent only while the app is on screen.
+    // What is queued for the user's TMDB account is sent only while the app is on screen, and
+    // stale snapshots are re-fetched only then too: launch and every return are the refresh's
+    // triggers. Nothing runs once the app leaves (SPEC D-040).
     override fun onStart() {
         super.onStart()
         app.tmdbAccount.startWorker()
+        app.catalogRefresh.start()
     }
 
     override fun onStop() {
+        app.catalogRefresh.stop()
         app.tmdbAccount.stopWorker()
         super.onStop()
     }
