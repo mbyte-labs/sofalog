@@ -49,6 +49,7 @@ private const val STORY =
         "over after work."
 private const val GITHUB_URL = "https://github.com/mbyte-labs/sofalog"
 private const val DISCORD_URL = "https://google.com"
+private const val PRIVACY_URL = "https://sofalog.mbyte.ro/privacy-policy-android"
 private const val TERMS_URL = "https://sofalog.mbyte.ro/"
 
 // The brand's own colour: this mark is not themed, so it reads as the logo it is.
@@ -149,6 +150,13 @@ fun AboutScreen(onMenu: () -> Unit) {
                 onClick = { uri.open(DISCORD_URL) },
             ) {
                 BrandDisc(DetailIcons.Discord, background = DiscordBlurple, tint = Color.White, markSize = 24.dp)
+            }
+            ActionCard(
+                "Privacy policy",
+                "What the app stores, what it sends, and to whom.",
+                onClick = { uri.open(PRIVACY_URL) },
+            ) {
+                AppLogo(size = 40.dp, corner = 10.dp)
             }
             ActionCard(
                 "Terms of Service",

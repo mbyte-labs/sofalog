@@ -273,4 +273,42 @@ Build               cd androidApp && ./gradlew assembleDebug
 Unit tests          cd androidApp && ./gradlew test
 Instrumented tests  cd androidApp && ./gradlew connectedAndroidTest
 Lint                cd androidApp && ./gradlew lint
+Release             cd androidApp && ./gradlew test assembleRelease bundleRelease
 ```
+
+## Releasing
+
+A release is one signed APK for GitHub and one AAB for Google Play, both built locally and both
+signed with **the same key**: Play App Signing is enrolled with that key rather than one Google
+generates, so an install can move between the GitHub build and the Play build in place.
+
+The keystore lives outside the repository. Name it in the gitignored `local.properties`:
+
+```
+release.storeFile=/absolute/path/to/sofalog-release.jks
+release.storePassword=…
+release.keyAlias=sofalog
+release.keyPassword=…
+```
+
+or set `SOFALOG_KEYSTORE_FILE`, `SOFALOG_KEYSTORE_PASSWORD`, `SOFALOG_KEYSTORE_KEY_ALIAS` and
+`SOFALOG_KEYSTORE_KEY_PASSWORD`. A relative `release.storeFile` is resolved against `androidApp/`.
+Without a keystore the release build still succeeds and is left unsigned
+(`app-release-unsigned.apk`) — never publish that one.
+
+1. In `app/build.gradle.kts`, set `versionName` and **raise `versionCode`** — Play refuses a code
+   it has already seen, and Android refuses to install a lower one over a higher one.
+2. Build: `./gradlew test assembleRelease bundleRelease`. The APK is
+   `app/build/outputs/apk/release/app-release.apk`, the bundle
+   `app/build/outputs/bundle/release/app-release.aab`.
+3. Check the signature: `apksigner verify --print-certs app/build/outputs/apk/release/app-release.apk`.
+4. Install the APK on a device and walk the app. The release build is shrunk and optimised by R8
+   and the debug build is not, so only this build shows what R8 broke. It cannot be installed over
+   a debug build (different signature): use a device without one, or uninstall first, which
+   deletes the library — write a backup file before.
+5. Tag `android-v<versionName>` (plain `v*` tags are the server's) and attach the APK to the
+   GitHub release; mark a beta as a pre-release.
+6. Upload the AAB to Play Console, internal testing first.
+
+The TMDB key is compiled into the app and can be read out of a published APK. Build releases
+with a key used for nothing else.

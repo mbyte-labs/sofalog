@@ -13,6 +13,8 @@ mkdir -p "$out/screenshots" "$out/icons"
 cp "$root"/site/index.html "$root"/site/site.css "$out"/
 mkdir -p "$out/privacy"
 cp "$root"/site/privacy/index.html "$out/privacy/"
+mkdir -p "$out/privacy-policy-android"
+cp "$root"/site/privacy-policy-android/index.html "$out/privacy-policy-android/"
 cp "$root"/docs/screenshots/*.jpg "$out/screenshots/"
 cp "$root"/docs/logo.svg "$out/logo.svg"
 cp "$root"/frontend/public/icons/icon-192.png "$root"/frontend/public/icons/apple-touch-icon.png "$out/icons/"
