@@ -251,8 +251,9 @@ androidApp/
   tests both run: change a rule on one side, change the fixture and the other side with it.
   The Up Next card's episode marker (`domain/EpisodeMarker.kt`, the server's `EpisodeMarker`) is
   a display rule with only Kotlin tests.
-- The database is unreleased but devices already hold data, so a schema change bumps the Room
-  version with a real `Migration` — never a destructive fallback.
+- The database's baseline is Room version 1, created from the entities with no migration history.
+  A schema change from now on bumps the version with a real `Migration` — never a destructive
+  fallback.
 - The UI reads only the local database, through `VideoRepository`. TMDB is called for search, for the
   Discover lists, for previews of untracked titles and to materialise a title when it is first tracked.
 - `user_show_states` has one system writer: `VideoRepository.recompute`, in the same transaction

@@ -80,27 +80,6 @@ private const val TICKET_BOX_URL = "https://github.com/mbyte-labs/ticket-box"
 @Composable
 fun RestoreScreen(onMenu: () -> Unit, onTicketBox: () -> Unit, onSofalog: () -> Unit, onBackup: () -> Unit) {
     SettingsPage("Backup & Restore", onMenu) {
-        SettingsSectionTitle("Restore backup")
-        SettingsNote(
-            "Bring your watch history, ratings, watchlist and favorites back from a file. Pick the app the " +
-                "backup came from.",
-        )
-        // Each card wears its source app's own mark, as the web chooser does, in the usual icon disc.
-        ActionCard(
-            "Ticket Box dump",
-            "A backup exported from the Ticket Box app: watch history, ratings, watchlist and favorites.",
-            onTicketBox,
-        ) {
-            MarkDisc(R.drawable.ticket_box, 28.dp)
-        }
-        ActionCard(
-            "Sofalog backup",
-            "A backup created by this app: watch history, ratings, watchlist, favorites, dropped shows and your copies.",
-            onSofalog,
-        ) {
-            MarkDisc(R.drawable.sofalog_mark, 34.dp)
-        }
-
         SettingsSectionTitle("Create backup")
         SettingsNote("This device holds the only copy of your library. A backup file is how you keep another.")
         ActionCard(
@@ -109,6 +88,27 @@ fun RestoreScreen(onMenu: () -> Unit, onTicketBox: () -> Unit, onSofalog: () -> 
             "Save everything you logged to a file on this device, or send it to another app or device.",
             onBackup,
         )
+
+        SettingsSectionTitle("Restore backup")
+        SettingsNote(
+            "Bring your watch history, ratings, watchlist and favorites back from a file. Pick the app the " +
+                "backup came from.",
+        )
+        // Each card wears its source app's own mark, as the web chooser does, in the usual icon disc.
+        ActionCard(
+            "Sofalog restore",
+            "A backup created by this app: watch history, ratings, watchlist, favorites, dropped shows and your copies.",
+            onSofalog,
+        ) {
+            MarkDisc(R.drawable.sofalog_mark, 34.dp)
+        }
+        ActionCard(
+            "Ticket Box restore",
+            "A backup exported from the Ticket Box app: watch history, ratings, watchlist and favorites.",
+            onTicketBox,
+        ) {
+            MarkDisc(R.drawable.ticket_box, 28.dp)
+        }
     }
 }
 
