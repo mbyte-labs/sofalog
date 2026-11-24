@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The Ticket Box app's mark, for the restore chooser's card.
+     The shapes are frontend/public/icons/ticket-box.svg's, in its own 96-unit coordinates. It is
+     bundled like the logo: naming the source app must not mean fetching anything from it. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="96"
+    android:viewportHeight="96">
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M34.23,14.75L34.23,26.03L61.68,47.27L34.23,68.51L34.23,79.79L76.25,47.27Z" />
+    <path
+        android:fillColor="#E91E63"
+        android:pathData="M34.24,32.35v8a6.93,6.93 0,0 1,0 13.85v8L53.51,47.27Z" />
+</vector>

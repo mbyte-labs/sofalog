@@ -1,5 +1,6 @@
 <script>
   import { GRID_POSTER_SIZES, assetUrl, posterSrcset } from '../../../lib/images.js'
+  import { formatDayNumeric } from '../common/format.js'
   import { hueFor, initialsFor } from '../common/posterPlaceholder.js'
   import { episodeCode } from './upNext.js'
 
@@ -43,13 +44,21 @@
     {#if episode.rating != null}
       <span class="rating"><span class="heart">♥</span> {episode.rating.toFixed(1)}</span>
     {/if}
-    {#if episode.marker || !episode.aired}
+    {#if episode.marker || !episode.aired || episode.airs_today}
       <div class="corner">
         {#if episode.marker}
           <span class="marker {episode.marker}">{MARKER_LABELS[episode.marker]}</span>
         {/if}
-        {#if !episode.aired}
-          <span class="marker upcoming">Upcoming</span>
+        {#if episode.airs_today}
+          <!-- Today's episode already reads as aired, so it has its own
+               server flag (D-038) — never a client-side date comparison. -->
+          <span class="marker upcoming">Airs today</span>
+        {:else if !episode.aired}
+          <!-- Whether it has aired is the server's flag (D-038); the date is
+               only formatted here, never compared with today. -->
+          <span class="marker upcoming">
+            {episode.air_date ? `Airs ${formatDayNumeric(episode.air_date)}` : 'Upcoming'}
+          </span>
         {/if}
       </div>
     {/if}
@@ -208,7 +217,8 @@
   }
 
   /* The marker badges stack in the top-left corner — a season marker first,
-     the server-computed "Upcoming" flag underneath when both apply. Only the
+     the server-computed unaired flag ("Airs 19.11.2026", or "Upcoming" when
+     undated) underneath when both apply. Only the
      stack's last badge rounds its inner corner, so the column reads as one
      block flush against the poster edge. */
   .corner {
@@ -232,23 +242,23 @@
   }
 
   .marker.upcoming {
-    background: rgb(70 70 80 / 0.85);
-    color: #fff;
+    background: var(--badge-airs);
+    color: var(--badge-text);
   }
 
   .marker.season_finale {
-    background: rgb(190 55 55 / 0.8);
-    color: #fff;
+    background: var(--badge-finale);
+    color: var(--badge-text);
   }
 
   .marker.season_premiere {
-    background: rgb(55 150 85 / 0.8);
-    color: #fff;
+    background: var(--badge-premiere);
+    color: var(--badge-text);
   }
 
   .marker.mid_season_finale {
-    background: rgb(220 175 50 / 0.8);
-    color: #1f1e1d;
+    background: var(--badge-finale);
+    color: var(--badge-text);
   }
 
   .meta {

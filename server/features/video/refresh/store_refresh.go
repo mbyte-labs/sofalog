@@ -17,6 +17,11 @@ import (
 // "Due" is decided by fetched_at alone: fixed-width RFC3339 UTC, so `< ?`
 // against a Go-computed cutoff is a chronological comparison on both engines
 // and no date function is needed (0001_init.sql's timestamp preamble).
+//
+// The active job carries one arm that is not a cutoff: a followed show with an
+// episode that aired since its season was last fetched is refreshed whatever
+// its age (recentlyAiredSeasons, below) — air day is when a stale snapshot is
+// most visible, and the refetch restarts the show's interval from that day.
 
 // refreshClass names one of the two scheduled jobs. It selects a compile-time
 // query string, never a fragment spliced into one.
@@ -164,6 +169,56 @@ ORDER BY s.season_number`
 			return nil, err
 		}
 		out = append(out, n)
+	}
+	return out, rows.Err()
+}
+
+// airedSeason is one non-special season of a followed show that holds an
+// episode which aired inside a recent window, with the season's own snapshot
+// instant: the pair the service compares to decide whether the episode aired
+// SINCE that snapshot.
+type airedSeason struct {
+	showID     int64
+	showTMDBID int64
+	season     int
+	fetchedAt  string
+	// lastAired is the latest air date in the window, YYYY-MM-DD.
+	lastAired string
+}
+
+// recentlyAiredSeasons lists the seasons of followed shows holding an episode
+// dated within [since, today] — both YYYY-MM-DD, Go-computed, so the range is
+// a plain string comparison served by idx_episodes_air_date. Followed is a
+// non-dropped state row of ANY user, as in DueShows. Specials are out: season
+// 0 never gates completion and never becomes an up-next pick.
+//
+// Whether the snapshot predates the air date is NOT decided here: that takes
+// the day fetched_at falls on in the server's zone, which no portable SQL can
+// derive, so the service does it per row.
+func recentlyAiredSeasons(ctx context.Context, d *db.DB, since, today string) ([]airedSeason, error) {
+	const q = `
+SELECT s.show_id, s.show_tmdb_id, s.season_number, s.fetched_at, MAX(e.air_date)
+FROM seasons s
+JOIN episodes e ON e.show_id = s.show_id AND e.season_number = s.season_number
+WHERE s.season_number > 0
+  AND e.air_date >= ? AND e.air_date <= ?
+  AND EXISTS (SELECT 1 FROM user_show_states ss
+              WHERE ss.show_id = s.show_id AND ss.status <> 'dropped')
+GROUP BY s.show_id, s.show_tmdb_id, s.season_number, s.fetched_at
+ORDER BY s.show_id, s.season_number`
+	rows, err := d.Read(ctx, q, since, today)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var out []airedSeason
+	for rows.Next() {
+		var a airedSeason
+		if err := rows.Scan(&a.showID, &a.showTMDBID, &a.season, &a.fetchedAt, &a.lastAired); err != nil {
+			return nil, err
+		}
+		out = append(out, a)
 	}
 	return out, rows.Err()
 }

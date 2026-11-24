@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The sofalog mark without its tile, for the restore chooser's card: the web app's own
+     (frontend/public/icons/logo-mark.svg), in its 512-unit coordinates, each rounded rect
+     written out as a path. Not the launcher icon — that one is AppLogo. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="96dp"
+    android:height="96dp"
+    android:viewportWidth="512"
+    android:viewportHeight="512">
+    <!-- back cushions as log bars -->
+    <path
+        android:fillColor="#7DD3FC"
+        android:pathData="M158,200a34,34 0 0 1 34,34v42a34,34 0 0 1 -34,34a34,34 0 0 1 -34,-34v-42a34,34 0 0 1 34,-34z" />
+    <path
+        android:fillColor="#7DD3FC"
+        android:pathData="M256,150a34,34 0 0 1 34,34v92a34,34 0 0 1 -34,34a34,34 0 0 1 -34,-34v-92a34,34 0 0 1 34,-34z" />
+    <path
+        android:fillColor="#7DD3FC"
+        android:pathData="M354,100a34,34 0 0 1 34,34v142a34,34 0 0 1 -34,34a34,34 0 0 1 -34,-34v-142a34,34 0 0 1 34,-34z" />
+    <!-- seat -->
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M124,326h264a32,32 0 0 1 32,32a32,32 0 0 1 -32,32h-264a32,32 0 0 1 -32,-32a32,32 0 0 1 32,-32z" />
+    <!-- feet -->
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M145,390h14a13,13 0 0 1 13,13a13,13 0 0 1 -13,13h-14a13,13 0 0 1 -13,-13a13,13 0 0 1 13,-13z" />
+    <path
+        android:fillColor="#0EA5E9"
+        android:pathData="M353,390h14a13,13 0 0 1 13,13a13,13 0 0 1 -13,13h-14a13,13 0 0 1 -13,-13a13,13 0 0 1 13,-13z" />
+</vector>

@@ -23,7 +23,7 @@
       icon: 'M12 20.5l-1.3-1.2C6.1 15.2 3 12.4 3 8.9 3 6.1 5.2 4 8 4c1.6 0 3.1.7 4 1.9C12.9 4.7 14.4 4 16 4c2.8 0 5 2.1 5 4.9 0 3.5-3.1 6.3-7.7 10.4L12 20.5z',
     },
     dropped: {
-      title: 'Dropped',
+      title: 'Dropped shows',
       href: '/video/lists/dropped',
       // A filled circle with a slash knocked out of it.
       icon: 'M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zM7.05 5.64l11.31 11.31-1.41 1.41L5.64 7.05l1.41-1.41z',

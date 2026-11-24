@@ -1,0 +1,527 @@
+{
+  "today": "2026-08-18",
+  "cases": [
+    {
+      "name": "a followed show lists its dated future episodes; past, undated and specials are out",
+      "shows": [
+        {
+          "title": "Alpha",
+          "status": "watching",
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 3,
+              "air_date": "2026-08-25",
+              "watched": false
+            },
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-19",
+              "watched": false
+            },
+            {
+              "season": 1,
+              "number": 4,
+              "air_date": "2026-08-17",
+              "watched": false
+            },
+            { "season": 1, "number": 5, "air_date": null, "watched": false },
+            {
+              "season": 0,
+              "number": 1,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [],
+      "want": ["2026-08-19 episode Alpha S1E2", "2026-08-25 episode Alpha S1E3"]
+    },
+    {
+      "name": "today is in the window; a watched episode is out",
+      "shows": [
+        {
+          "title": "Alpha",
+          "status": "watching",
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-18",
+              "watched": false
+            },
+            {
+              "season": 1,
+              "number": 3,
+              "air_date": "2026-08-18",
+              "watched": true
+            }
+          ]
+        }
+      ],
+      "movies": [],
+      "want": ["2026-08-18 episode Alpha S1E2"]
+    },
+    {
+      "name": "a watchlisted show never started is included; an unlisted, unfollowed one is not",
+      "shows": [
+        {
+          "title": "Beta",
+          "status": null,
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 1,
+              "air_date": "2026-09-01",
+              "watched": false
+            }
+          ]
+        },
+        {
+          "title": "Gamma",
+          "status": null,
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 1,
+              "air_date": "2026-09-01",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [],
+      "want": ["2026-09-01 episode Beta S1E1"]
+    },
+    {
+      "name": "followed and watchlisted lists each episode once; a finished show still lists new ones",
+      "shows": [
+        {
+          "title": "Alpha",
+          "status": "watching",
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        },
+        {
+          "title": "Done",
+          "status": "watched",
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 2,
+              "number": 1,
+              "air_date": "2026-08-21",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [],
+      "want": ["2026-08-20 episode Alpha S1E2", "2026-08-21 episode Done S2E1"]
+    },
+    {
+      "name": "dropped wins over the watchlist",
+      "shows": [
+        {
+          "title": "Gone",
+          "status": "dropped",
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [],
+      "want": []
+    },
+    {
+      "name": "movies: watchlisted, unwatched, dated inside the window",
+      "shows": [],
+      "movies": [
+        {
+          "title": "Seen",
+          "release_date": "2026-08-30",
+          "watchlisted": true,
+          "watched": true
+        },
+        {
+          "title": "Soon",
+          "release_date": "2026-09-10",
+          "watchlisted": true,
+          "watched": false
+        },
+        {
+          "title": "Released",
+          "release_date": "2026-08-17",
+          "watchlisted": true,
+          "watched": false
+        },
+        {
+          "title": "Unlisted",
+          "release_date": "2026-08-30",
+          "watchlisted": false,
+          "watched": false
+        },
+        {
+          "title": "Undated",
+          "release_date": null,
+          "watchlisted": true,
+          "watched": false
+        }
+      ],
+      "want": ["2026-09-10 movie Soon"]
+    },
+    {
+      "name": "a watched movie does not hide the episode sharing its id",
+      "shows": [
+        {
+          "title": "Alpha",
+          "status": null,
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 1,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [
+        {
+          "title": "Seen",
+          "release_date": "2026-08-20",
+          "watchlisted": true,
+          "watched": true
+        }
+      ],
+      "want": ["2026-08-20 episode Alpha S1E1"]
+    },
+    {
+      "name": "the window is half-open: from + days is out",
+      "days": 14,
+      "shows": [],
+      "movies": [
+        {
+          "title": "First",
+          "release_date": "2026-08-18",
+          "watchlisted": true,
+          "watched": false
+        },
+        {
+          "title": "Last",
+          "release_date": "2026-08-31",
+          "watchlisted": true,
+          "watched": false
+        },
+        {
+          "title": "Out",
+          "release_date": "2026-09-01",
+          "watchlisted": true,
+          "watched": false
+        }
+      ],
+      "want": ["2026-08-18 movie First", "2026-08-31 movie Last"]
+    },
+    {
+      "name": "the default window is 90 days",
+      "shows": [],
+      "movies": [
+        {
+          "title": "Last",
+          "release_date": "2026-11-15",
+          "watchlisted": true,
+          "watched": false
+        },
+        {
+          "title": "Out",
+          "release_date": "2026-11-16",
+          "watchlisted": true,
+          "watched": false
+        }
+      ],
+      "want": ["2026-11-15 movie Last"]
+    },
+    {
+      "name": "type narrows to episodes",
+      "type": "episode",
+      "shows": [
+        {
+          "title": "Alpha",
+          "status": "watching",
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [
+        {
+          "title": "Soon",
+          "release_date": "2026-08-19",
+          "watchlisted": true,
+          "watched": false
+        }
+      ],
+      "want": ["2026-08-20 episode Alpha S1E2"]
+    },
+    {
+      "name": "type narrows to movies",
+      "type": "movie",
+      "shows": [
+        {
+          "title": "Alpha",
+          "status": "watching",
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [
+        {
+          "title": "Soon",
+          "release_date": "2026-08-19",
+          "watchlisted": true,
+          "watched": false
+        }
+      ],
+      "want": ["2026-08-19 movie Soon"]
+    },
+    {
+      "name": "one day orders by case-folded title, episodes before a movie, shows sharing a title kept apart",
+      "shows": [
+        {
+          "title": "Twin",
+          "status": null,
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 3,
+              "air_date": "2026-08-20",
+              "watched": false
+            },
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        },
+        {
+          "title": "Twin",
+          "status": null,
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 2,
+              "number": 2,
+              "air_date": "2026-08-20",
+              "watched": false
+            },
+            {
+              "season": 2,
+              "number": 1,
+              "air_date": "2026-08-20",
+              "watched": false
+            }
+          ]
+        },
+        {
+          "title": "Zed",
+          "status": null,
+          "watchlisted": true,
+          "episodes": [
+            {
+              "season": 1,
+              "number": 1,
+              "air_date": "2026-08-20",
+              "watched": false
+            },
+            {
+              "season": 1,
+              "number": 2,
+              "air_date": "2026-08-19",
+              "watched": false
+            }
+          ]
+        }
+      ],
+      "movies": [
+        {
+          "title": "twin",
+          "release_date": "2026-08-20",
+          "watchlisted": true,
+          "watched": false
+        },
+        {
+          "title": "apple",
+          "release_date": "2026-08-20",
+          "watchlisted": true,
+          "watched": false
+        }
+      ],
+      "want": [
+        "2026-08-19 episode Zed S1E2",
+        "2026-08-20 movie apple",
+        "2026-08-20 episode Twin S1E2",
+        "2026-08-20 episode Twin S1E3",
+        "2026-08-20 episode Twin S2E1",
+        "2026-08-20 episode Twin S2E2",
+        "2026-08-20 movie twin",
+        "2026-08-20 episode Zed S1E1"
+      ],
+      "want_cards": [
+        {
+          "title": "Zed",
+          "sub": "S1xE2",
+          "chip": "Episode",
+          "markers": [],
+          "date_label": "Tomorrow",
+          "soon": true
+        },
+        {
+          "title": "apple",
+          "sub": "Release",
+          "chip": "Movie",
+          "markers": [],
+          "date_label": "Thu 20 Aug",
+          "soon": false
+        },
+        {
+          "title": "Twin",
+          "sub": "S1 · E2–E3",
+          "chip": "2 episodes",
+          "markers": [],
+          "date_label": "Thu 20 Aug",
+          "soon": false
+        },
+        {
+          "title": "Twin",
+          "sub": "S2 · E1–E2",
+          "chip": "2 episodes",
+          "markers": ["season_premiere"],
+          "date_label": "Thu 20 Aug",
+          "soon": false
+        },
+        {
+          "title": "twin",
+          "sub": "Release",
+          "chip": "Movie",
+          "markers": [],
+          "date_label": "Thu 20 Aug",
+          "soon": false
+        },
+        {
+          "title": "Zed",
+          "sub": "S1xE1",
+          "chip": "Episode",
+          "markers": ["season_premiere"],
+          "date_label": "Thu 20 Aug",
+          "soon": false
+        }
+      ]
+    },
+    {
+      "name": "a season released in one day folds into one card; a day apart does not",
+      "days": 365,
+      "shows": [
+        {
+          "title": "Binge",
+          "status": "watching",
+          "watchlisted": false,
+          "episodes": [
+            {
+              "season": 2,
+              "number": 1,
+              "air_date": "2026-08-18",
+              "watched": false,
+              "title": "Open",
+              "type": "standard"
+            },
+            {
+              "season": 2,
+              "number": 2,
+              "air_date": "2026-08-18",
+              "watched": false,
+              "title": "Middle",
+              "type": "mid_season"
+            },
+            {
+              "season": 2,
+              "number": 4,
+              "air_date": "2026-08-18",
+              "watched": false,
+              "title": "Close",
+              "type": "finale"
+            },
+            {
+              "season": 3,
+              "number": 5,
+              "air_date": "2027-01-02",
+              "watched": false,
+              "title": "Later",
+              "type": "mid_season"
+            }
+          ]
+        }
+      ],
+      "movies": [],
+      "want": [
+        "2026-08-18 episode Binge S2E1",
+        "2026-08-18 episode Binge S2E2",
+        "2026-08-18 episode Binge S2E4",
+        "2027-01-02 episode Binge S3E5"
+      ],
+      "want_cards": [
+        {
+          "title": "Binge",
+          "sub": "S2 · E1–E4",
+          "chip": "3 episodes",
+          "markers": ["season_premiere", "season_finale"],
+          "date_label": "Today",
+          "soon": true
+        },
+        {
+          "title": "Binge",
+          "sub": "S3xE5 · Later",
+          "chip": "Episode",
+          "markers": ["mid_season_finale"],
+          "date_label": "Sat 2 Jan 2027",
+          "soon": false
+        }
+      ]
+    }
+  ]
+}

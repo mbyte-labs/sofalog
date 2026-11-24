@@ -15,13 +15,13 @@ updates `SPEC.md` in the same commit — never leave the two disagreeing.
 ## Current milestone: M4 (games)
 
 Build only what the current milestone lists in [`SPEC.md` §8](SPEC.md#8-milestones). Do not start
-API tokens or export before the active milestone closes. M1.5 and M2 are closed. **M3 (books) was
+export before the active milestone closes; API tokens belong to the Android track's phase 2 (D-040). M1.5 and M2 are closed. **M3 (books) was
 withdrawn** (D-035): the product tracks video and games only. There is no books package, no books
 table, no Open Library client and no `/books` route, and none is to be added without a new decision.
 Update this line when a milestone closes.
 
 **Five things were pulled forward on request.** **OIDC login**, from M5 into M1: configuring a
-provider **disables local authentication entirely** (D-018); API tokens and export remain M5.
+provider **disables local authentication entirely** (D-018); export remains M5, and API tokens moved to the Android track (D-040).
 **Show tracking**, from M2 into M1.5 — because a show page whose "Mark As Watched" is permanently
 disabled is a dead end. **Show watchlisting**, from M2 into M1.5 for the same reason: a
 permanently disabled button is a dead end. **Removing a single watch entry**, which belonged to
@@ -97,7 +97,11 @@ wrapping around (specials neither anchor the pick nor become it). **The pick del
 airedness**: an unaired or undated next episode is served with the additive `episode.aired` flag
 false (computed server-side against the user's today in their zone, D-038 — the client never
 derives it) and the card stacks an
-"Upcoming" badge under the marker badge; `only_released` is where `EligibleEpisode` is spliced, and
+"Airs 19.11.2026" badge — plain "Upcoming" when the episode is undated; the client formats
+`air_date`, never compares it — under the marker badge. **An episode dated today is already
+`aired`** (the predicate is on-or-before), so it carries its own additive flag,
+`episode.airs_today`, from the same clock reading, and the card badges it "Airs today" in the same
+slot; the Android card applies the same rule on the device (`EpisodeRef.airsToday`). `only_released` is where `EligibleEpisode` is spliced, and
 it lands after the pick, so an unaired pick filters to nothing rather than falling back to a later
 aired episode. Ordering, nulls-last and the name/id tie-break follow `listWatchlistTargets`'s
 compile-time-constant pattern. A card leads to the episode details page, which is why the entry
@@ -389,7 +393,11 @@ watchlist** — the two selections are disjoint, and a watchlist row always mean
 per show `RefreshShow` (root + NEW seasons) and then the show's **open seasons** only — the
 highest-numbered one plus any non-special season with an undated or future episode, computed AFTER
 the root refresh so a season it just materialised is not fetched twice; a closed season is never
-re-fetched by the job. Selection SQL lives in `refresh/store_refresh.go`; a class picks a compile-time query,
+re-fetched by the job. **The active job has one arm that is not a cutoff**: a followed show with a
+non-special episode that aired since its season's snapshot (`recentlyAiredSeasons` +
+`airedSinceFetch`, the day compared in Go in the server's default zone) joins the pass whatever its
+age and that season is refetched with it; a snapshot from the air day counts as current, so one
+refetch ends it. Selection SQL lives in `refresh/store_refresh.go`; a class picks a compile-time query,
 never a spliced fragment. Every tick ends with the **status sweep** (`runStatusSweep`):
 `RecomputeShowStatus` for every non-dropped (user, show) pair holding a state row or an episode watch
 — D-010's whole-table pass, done as a loop over the scoped single writer so there is still exactly
@@ -795,6 +803,74 @@ Code is organised **per feature** (D-014, D-037). The Go module is `server/` (mo
 `frontend/` with `src/features/<component>/<feature>/`. There is **no `internal/` and no `cmd/`** —
 `package main` is `server/main.go`.
 
+**`androidApp/` is the Android app** — its own Gradle project (Kotlin + Jetpack Compose, module
+`app`); nothing under `server/` or `frontend/` depends on it and `/verify` does not build it. Its
+scope is **D-040**: video only, **local-first** — the device's own database is the only thing the
+UI reads, and the device calls TMDB itself with a key built into the app (a build-time secret,
+never committed; **the server never hands a key to a client**). It runs **standalone** (no server;
+a backup file is the safety net) or **linked**, where the server is the source of truth: writes go
+to the local database plus an **outbox of commands** (client-generated id, TMDB-addressed targets),
+and on open the app **pushes the outbox, then replaces its user state with the server's full
+snapshot** — it never merges, and nothing on the wire is a local id. Pairing is an API token shown
+as a QR code on a SPA Devices page. The Up Next / status / aired / upcoming / stats rules exist in
+Go **and** Kotlin and are held together by shared JSON fixtures both test suites run: change a
+rule on one side, change the fixture and the other side. **No background work, notifications or
+widgets; no games; no Jellyfin or matching screens.** **The catalog refresh runs in the
+foreground** (`data/CatalogRefresher.kt`, started and stopped by `MainActivity.onStart` /
+`onStop`): D-025's two classes picked by `domain/CatalogRefresh.kt` from each row's `fetched_at`,
+ticked on coming on screen and every six hours while there — the aired-since arm included, in the
+user's zone — each tick ending with the local status sweep — it is what returns a finished show to Up Next when a new season is announced. **Up Next has a pull-to-refresh** (`VideoRepository.refreshUpNext`): user-triggered, foreground only, it re-fetches every listed show whatever its age plus the season of each card's episode — closed or not, because the card's TMDB score is read from that season's body. **Settings is built** (`ui/settings/`, drawer
+entry "Settings"): About (the app's Data Sources: logo and version, the story, where the data lives, community links, and the one home of the TMDB notice), the time zone and the where-to-watch country (a `settings` table;
+`domain/UserZone.kt`'s `UserZone` and `WatchRegion` are the ONE place the rest of the app reads
+them — never `ZoneId.systemDefault()` or the `WATCH_REGION` default directly), with Users and Log
+out listed and disabled until linking exists. **The Discover page is built** (`ui/discover/`,
+drawer entry "Discover"): D-034's subset — the weekly Trending list and the Popular list
+(`/discover/*` by popularity, filtered by a minimum TMDB score (default 5.5), original language and genres), one
+All / Movies / Shows filter over both, live on every view and never stored; the rules are
+`domain/Discover.kt`, and the card is `ui/common/TitleCard.kt`, shared with Search. **The Stats page is built** (`ui/stats/`, drawer entry "Stats"): D-039 on
+the device — every section of the web page, for all time or one year in the user's zone, folded by
+`computeStats` in `domain/Stats.kt` (a port of the server's `features/video/stats`; change one,
+change the other and `fixtures/video-rules/stats.json`) from `VideoRepository.observeStats`' whole
+read of the log and the ratings — live, never stored, never a provider call; its charts are drawn
+in Compose (no chart dependency) and `domain/StatsLabels.kt` holds the web page's copy. **The Upcoming page is built** (`ui/upcoming/`, drawer entry "Upcoming"): D-026 on the device —
+`VideoRepository.observeUpcoming` reads the window's rows live and `domain/Upcoming.kt` decides
+them (`upcomingEntries` is the server's selection and order, `buildUpcomingCards` the web's fold;
+change one, change the other and `fixtures/video-rules/upcoming.json`). **The Lists hub is built** (`ui/lists/`, drawer
+entry "Lists"): one poster-fan card per list — Watchlist, Favorites, Dropped — and one page per list,
+each list read whole from Room and ordered and filtered in Kotlin by `domain/ListOrder.kt`
+(`orderList` is the server's list ordering; `summarize` its hub counts, plus the newest five POSTERS for the card's fan — deliberately not the web hub's backdrop pick). **The TMDB account link and the Ticket Box restore
+run on the device** (D-040, reversed on request): `data/tmdbaccount/` ports D-029 / D-036 — a
+TMDB-addressed outbox filled by `VideoRepository.mirror` inside each write's transaction and sent
+only while the app is on screen, the setup's pull through the no-enqueue `pull*` methods, and the
+session id kept OUT of Room in `TmdbSessionStore` (encrypted, no-backup storage; never logged) —
+and `data/RestoreRepository.kt` ports D-023 over the pure rules in `domain/TicketBoxDump.kt` and
+`domain/RestorePlan.kt`. Their shared cases are `tmdb-sync.json` and `ticket-box-restore.json`. **The app's own backup file is built** (D-040): `domain/Backup.kt` is the format
+(`sofalog-backup`, version 1 — history, ratings, watchlist, favorites, dropped shows and copies,
+grouped per title, TMDB-addressed, never the settings or the TMDB link) with its reader and
+`validateSofalogBackup`, and `data/BackupRepository.kt` writes it to a picked document or, for
+the share sheet, to `cacheDir/backups` behind the manifest's `FileProvider`. Restoring one is the
+Ticket Box run (`RestoreRepository`, `RestoreSource.SOFALOG`) with every group **exact**: a title
+in the file is replaced by the file's state, what the file lacks is removed, and a title the file
+does not name is untouched — keep `exact = false` meaning today's Ticket Box semantics. Delivery is three
+phases — standalone app, then the server side (tokens, `episodes.tmdb_id`, snapshot, command
+batch), then linking. **Phase 1's first slice is built** (Room database, TMDB client, Up Next,
+search, movie/show/season/episode pages, marking and bulk marking, watch removal; the movie and show
+pages are at parity with the web's — rating, watchlist, favorite, copies, streaming, cast, media,
+similar, and for a show the season grid, drop / un-drop and the bulk mark's rewatch and
+`watched_at` modes — off the stored TMDB body, `domain/MovieSnapshot.kt` and
+`domain/ShowSnapshot.kt`, both built from the shared sections in `ui/details/parts/`; the season
+page is at parity too — episode grid, season-wide bulk mark, per-season copies, cast and scores
+off the season's own compacted body, `domain/SeasonSnapshot.kt` — and so is the episode page,
+which reads that same season body (regulars, guest stars, score and votes) and never fetches an
+episode of its own: its still is the hero, its copies and streaming are the season's and the
+show's, read-only, and it rates and logs the episode itself); what is and is not
+there yet is listed in `androidApp/README.md`. The shared cases live in `fixtures/video-rules/`
+and are run by `RuleFixturesTest` (Kotlin) and by `status_fixtures_test.go` /
+`upnext/fixtures_test.go` (Go); the Stats cases by `StatsFixturesTest` and
+`stats/stats_fixtures_test.go`. The TMDB key comes from `tmdb.apiKey` in the gitignored
+`androidApp/local.properties`. Adding a Gradle dependency requires
+asking first, like a Go module or an npm package.
+
 - Media components live under `server/features/`: `features/video` (movies + shows together) and
   `features/games`. `server/auth` is also a feature (same layering) but stays **top-level** — it
   is cross-cutting. Shared infrastructure: `server/{config,httpx,db,provider,assets,web}`.
@@ -1002,7 +1078,8 @@ Trakt/Letterboxd/Goodreads import **via their APIs** (a Ticket Box dump file is 
 social features, sharing (the one opt-in carve-out is D-028's watchlist matching, which shows only
 the overlap with your own list; statistics over your OWN log are in, D-039, and are never compared
 across accounts), notifications, importing an export archive, any
-offline-capable client mirror or sync layer (D-004).
+offline-capable mirror or sync layer in the SPA (D-004), and any two-way merge anywhere — the
+Android app is the one offline client and it only queues commands and takes snapshots (D-040).
 
 **Books** (D-035): the third component was withdrawn; do not reintroduce a books table, route or
 provider client without a new decision.

@@ -120,6 +120,11 @@ frontend/              Svelte SPA (Vite)
                          video/ is split per feature like the Go side (upnext/, lists/, details/, …)
                          with video/common/ for the api module and shared components
   src/lib/             ← shared only: the one fetch client, image helper
+androidApp/            Android app (its own Gradle project: Kotlin + Jetpack Compose): video only,
+                       local-first with its own database, standalone or linked to a server
+                       through /api/v1 (D-040). See androidApp/README.md
+fixtures/video-rules/  JSON cases for the rules that exist in both Go and Kotlin (D-040); both
+                       test suites run them
 ```
 
 ### Layering inside a feature package
@@ -171,7 +176,10 @@ convention and `/verify` greps rather than by package boundaries (D-014):
   `oauth_identities` table (`provider`, `provider_user_id`, `user_id`) and an `api_tokens` table.
   All three exist from the **first migration** — see
   [D-007](#d-007--oidc-and-api-tokens-ship-in-m5-but-the-schema-makes-room-in-migration-1), which is
-  what let OIDC land early with no migration. API tokens still ship in M5.
+  what let OIDC land early with no migration. API tokens were to ship in M5; they are pulled
+  forward as the Android app's device pairing
+  ([D-040](#d-040--the-android-app-is-a-local-first-client-standalone-or-an-outbox-and-a-snapshot-against-a-server-that-stays-the-source-of-truth)),
+  in that decision's phase 2.
 - No JWTs. Server-side sessions are simpler and revocable for a single-server app.
 
 ### Frontend & PWA
@@ -182,11 +190,13 @@ convention and `/verify` greps rather than by package boundaries (D-014):
 - `manifest.json` (name, icons, `display: standalone`) + a minimal service worker: cache the app
   shell and `/assets/` images, provide an offline fallback page, and **never** cache `/api/v1`
   mutations.
-- **No offline-capable client.** No IndexedDB mirror of the library, no client-side write queue, no
-  sync or conflict-resolution layer. Mutations require the server. The "works with providers down"
-  requirement in [§5](#the-app-works-with-providers-down) is about *provider* reachability, not
-  client↔server connectivity — see
+- **The SPA is not an offline-capable client.** No IndexedDB mirror of the library, no client-side
+  write queue, no sync or conflict-resolution layer. Mutations require the server. The "works with
+  providers down" requirement in [§5](#the-app-works-with-providers-down) is about *provider*
+  reachability, not client↔server connectivity — see
   [D-004](#d-004--works-with-providers-down-is-about-providers-not-about-being-offline-capable).
+  The Android app is the one client that works offline, and it does so without a merge layer
+  ([D-040](#d-040--the-android-app-is-a-local-first-client-standalone-or-an-outbox-and-a-snapshot-against-a-server-that-stays-the-source-of-truth)).
 - Dev workflow: `vite dev` proxying `/api` to the Go server; embedding happens only in the
   production build.
 
@@ -978,11 +988,16 @@ does not start on a later milestone before the active one closes.
 |---|---|
 | **M0** — skeleton | Repo layout, config loading (fail-fast on required env), migration runner applied at startup, health endpoint, embedded SPA shell, multi-stage Dockerfile, `docker-compose.yml`, Caddyfile |
 | **M1** — auth + movies | Local auth (argon2id) + server-side sessions, **plus OIDC login pulled forward from M5** (D-018); movies: TMDB search, add, mark watched, the watchlist axis, ratings; `user_watch_history` with rewatches, **plus the history-by-date feed over it pulled forward from M2** — movies only, since the episode arm needs M2's catalog tables; poster + backdrop stored locally **through the throttled queue**; TMDB attribution in the UI. *watched* is the only status a movie ever has — **a movie cannot be dropped, in this or any milestone** (see [§6](#statuses)) |
-| **M1.5** — show tracking | Pulled forward from M2 on request, because a show page whose "Mark As Watched" is permanently disabled is a dead end. Adds the `shows` and `episodes` catalog tables, `user_show_states`, and a `show_id` on `seasons` (see [D-015](#d-015--the-details-views-may-call-tmdb-live-for-untracked-snapshot-with-bounded-staleness-for-tracked) — a season VIEW must not create rows at all; only tracking writes a season, so the column is **NOT NULL**); `RecomputeShowStatus` as the second writer in `common/status.go`; episode marking and the **"mark whole show watched"** bulk action; show and episode ratings but **not** seasons ([D-020](#d-020--seasons-are-not-rateable)); derived show progress; the show asset tree with every season poster and episode still downloaded eagerly; the show details view gains its snapshot/refresh/stale-serve half; the history feed **gains its episode entries**; and **show watchlisting, also pulled forward on request** — a show is watchlistable from its details page and the watchlist page lists both kinds together; and **removing a single watch entry, also pulled forward on request** — a watch-history list you cannot correct is one where a mis-tap is permanent, so the details-page timeline deletes one row by its id and the status recomputes with it; and **dated watch logging with an optional rating, also pulled forward on request** — [D-009](#d-009--rewatch-history-is-first-class-for-video)'s deferred "log a rewatch" operation, which is what lets the movie and episode pages' watch button stay usable after the first press. The timeline itself runs on **all four** video details pages, scoped three ways — one target, one season's episodes, or one show's across every season. The season and show forms are **scopes, not targets** (neither is ever itself watched), so they are separate query parameters rather than `target_type` values, and at most one narrowing may be sent. The whole-show mark later gained the **bulk dialog** — remaining episodes vs a full rewatch, and per-row dating: now, one fixed instant, each episode's air date, or each season's premiere with a fallback for seasons that have none (see [Bulk actions](#bulk-actions)). **"Mark whole season watched" was then pulled forward too**, on request: the same endpoint's `scope: season` (the season is the target; Specials are refused), the same dialog on the season page, the premiere fallback narrowed to that one season. **The currently-watching home view ("Up Next") was then pulled forward too**, on request, replacing the M0 dummy: started shows only (≥1 episode watch, dropped excluded — a watchlisted-but-never-started show does not appear), and the next episode is the first non-special episode **strictly after the highest watched position** — after S1E2 the answer is S1E3, never S1E1, and a show with nothing after its highest watched episode is absent rather than wrapping around. An unaired or undated next episode stays listed, flagged `aired: false` and badged "Upcoming" on the card, unless the release-date filters remove it; `only_released` splices D-012's predicate verbatim. **Owned copies were then pulled forward too**, on request — they belonged to no milestone: `user_video_copies` records which formats/services a user holds an item on, per movie and **per season** ([D-021](#d-021--owned-copies-are-per-user-and-per-season-for-shows)); the detail pages' "Your copies" tiles stop being a demo, a show-level tap fans out across every non-special season, and the show page's tiles report per-kind coverage ("3 of 5 seasons"). **Online providers were then pulled forward too**, on request — they belonged to no milestone either: the "Watch now" section's streaming half stops being a demo and renders TMDB's watch-provider data for one server-configured country, on the movie, show, season and episode pages, with locally proxied service logos and the JustWatch credit ([D-022](#d-022--online-providers-ride-the-item-snapshot-region-is-server-config)). **The Up Next card's mark-watched action was then pulled forward too**, on request, because a card that could only take you elsewhere made the one thing the view is for a trip through another page — but as a **chooser rather than the one tap this milestone described**: the whole card opens a two-action dialog, mark it watched or go to the episode's details page (the latter still a real link), and marking opens the same dated watch dialog the episode page uses — one instant and an optional rating in one transaction. The list is refetched afterwards, because the response states the show's status and progress but not its next episode. The season grid's per-episode tick was later removed: its stills are read-only badges (watched, the user's rating, the TMDB score — the history card's), and the season-level bulk button is that page's only mark action, so no one-tap undated mark remains in the SPA. **The user-set drop / un-drop path was then pulled forward too**, on request, because a show page that could mark and watchlist but never say "I gave up on this" left `dropped` as a value the whole app could read and nothing could write: `POST` / `DELETE /video/shows/{id}/drop`, show-only, idempotent both ways, never a provider call, with the two statements that write the value living in `common/status.go` beside the recomputes — the single-writer rule covers the column, not just the recompute. Only a started show can be dropped (no episode watch, no state row, a 422), the un-drop clears to `watching` and recomputes in the same transaction so a show dropped after finishing returns to *watched*, and Up Next needed no change at all: its query already excluded dropped shows. **Restoring a Ticket Box backup was then pulled forward too**, on request — it belonged to no milestone: `POST` / `GET /video/restore/ticket-box` take the version-2 JSON export of the author's own Trakt client and fold its history, ratings and watchlist into the user's state, replacing the watches of every item the file has watches for and upserting the rest, skipping-and-reporting what sofalog cannot take, materialising untracked items through the ordinary tracking gate, as an in-memory job the SPA polls from Settings → Restore backup ([D-023](#d-023--a-ticket-box-dump-is-the-one-import-path)). **Per-season progress and the episode-rating average on the show page's season grid were then pulled forward too**, on request: two derived, additive per-user fields on each season entry — watched / aired / total for that one season (Specials counting their own episodes, since this is display rather than the completion rule), and the mean of the user's episode ratings in it, a season not being rateable itself ([D-020](#d-020--seasons-are-not-rateable)); both null for an untracked show. **Similar titles were then pulled forward too**, on request — they belonged to no milestone: the movie and show pages' placeholder "Similar" rail renders TMDB's **recommendations** out of the item's own snapshot — no new provider call, stored verbatim in `metadata_json`, every card a foreign title reached by `tmdb_id` with its poster through the cache proxy ([D-024](#d-024--similar-titles-ride-the-item-snapshot)). **The scheduled TMDB refresh was then pulled forward too**, on request — D-006's one scheduler, now carrying two separately configured jobs ([D-025](#d-025--two-refresh-jobs-split-by-current-interest-on-the-row-timestamp)): an **active** job (default weekly) for every movie and show on any watchlist and every followed show still in production, and an **archive** job (default quarterly) for watched movies and followed shows TMDB has ended or cancelled, neither on any watchlist. Both re-fetch a show's root and its **open** seasons only, both are driven by the row's own `fetched_at` rather than a last-run record, and every hourly tick ends with the local status sweep — D-010's whole-table pass — whatever the intervals say. **A person details page was then pulled forward too**, on request — it belonged to no milestone: every cast card with a TMDB person id links to `video/person-details?tmdb_id=`, served live from TMDB on every view and never a catalog row, its filmography marked against the library by TMDB id ([D-027](#d-027--the-person-page-is-always-live-and-never-a-catalog-row)). **Matching watchlists were then pulled forward too**, on request — they belonged to no milestone and carve one narrow, opt-in exception out of "no sharing": a `users.match_watchlist` consent flag only its own account may set, a `match_user` filter on `GET /video/watchlist` that intersects the caller's list with every named consenting user's, and a peer list carrying id and label only ([D-028](#d-028--matching-watchlists-is-opt-in-and-only-ever-shows-the-overlap-with-your-own-list)). **One-way rating sync to the user's own TMDB account was then pulled forward too**, on request — it belonged to no milestone and is the product's first write to a provider: Settings → TMDB account links the user's own account through TMDB's approval page (the link is the opt-in), every local rating write queues a row in an outbox inside its own transaction, a worker drains it in the background, linking backfills the ratings already held, watchlist adds and removes ride the same outbox, and unlinking stops the push without touching TMDB's ratings or list ([D-029](#d-029--ratings-push-one-way-to-the-users-own-tmdb-account)). **A setup step after linking was then added**, on request: per kind, pull TMDB's list into the library once, push sofalog's once, or skip, plus a per-kind switch for the ongoing push that lives on the page afterwards ([D-036](#d-036--the-link-is-followed-by-a-one-time-setup-pull-push-or-skip-per-kind-and-per-kind-switches)). **Favorites were then pulled forward too**, on request — they belonged to no milestone: a third independent axis for movies and shows, modelled on the watchlist byte for byte — `POST` / `DELETE /video/favorites`, a heart beside the bookmark on the movie and show pages, and a Favorites page over `GET /video/favorites`. A favorite is a tracking action and a D-008 reference, keeps the item on the active refresh cadence, mirrors to the linked TMDB account through the same outbox, and stays off the upcoming calendar ([D-030](#d-030--favorites-are-a-third-independent-axis)). **The Jellyfin library scan was then pulled forward too**, on request — it belonged to no milestone and reverses one line of D-021: when `JELLYFIN_URL` and `JELLYFIN_API_KEY` are set, a background scan reads what the household's Jellyfin server holds, matches movies and seasons by TMDB id, and the `jellyfin` copy tile mirrors the answer for every user — read-only, refused by the copy routes, refetched on a schedule and on "Scan now" under Settings → Jellyfin. It never calls TMDB, never adds an item, and reads presence, not playback ([D-033](#d-033--the-jellyfin-tile-mirrors-the-households-server-when-one-is-configured)). **Trending and popular lists were then pulled forward too**, on request — they belonged to no milestone: a Trending page over `GET /video/trending` (today / this week) and a Discover tab over `GET /video/discover` — TMDB's `/discover` listing with its sort orders and filters, the popular list when unfiltered, its option lists from `GET /video/discover/options` — every list served live on every view, paged by TMDB's own `page` behind a "Load more" button and never stored — the person page's rule, an eighth provider call site — each card marked against the library by a local join and linking by local id when the catalog holds it ([D-034](#d-034--the-trending-and-popular-lists-are-always-live-and-never-a-catalog-row)). **Statistics were then pulled forward too**, on request — they belonged to no milestone and reverse one word of §9: a Stats page over `GET /video/stats`, every section computed on the server from the user's own log, ratings and show states for all time or one calendar year in their zone, never stored, never shared, never a provider call ([D-039](#d-039--statistics-are-a-read-only-projection-of-your-own-log-computed-on-the-server-in-your-zone)) |
+| **M1.5** — show tracking | Pulled forward from M2 on request, because a show page whose "Mark As Watched" is permanently disabled is a dead end. Adds the `shows` and `episodes` catalog tables, `user_show_states`, and a `show_id` on `seasons` (see [D-015](#d-015--the-details-views-may-call-tmdb-live-for-untracked-snapshot-with-bounded-staleness-for-tracked) — a season VIEW must not create rows at all; only tracking writes a season, so the column is **NOT NULL**); `RecomputeShowStatus` as the second writer in `common/status.go`; episode marking and the **"mark whole show watched"** bulk action; show and episode ratings but **not** seasons ([D-020](#d-020--seasons-are-not-rateable)); derived show progress; the show asset tree with every season poster and episode still downloaded eagerly; the show details view gains its snapshot/refresh/stale-serve half; the history feed **gains its episode entries**; and **show watchlisting, also pulled forward on request** — a show is watchlistable from its details page and the watchlist page lists both kinds together; and **removing a single watch entry, also pulled forward on request** — a watch-history list you cannot correct is one where a mis-tap is permanent, so the details-page timeline deletes one row by its id and the status recomputes with it; and **dated watch logging with an optional rating, also pulled forward on request** — [D-009](#d-009--rewatch-history-is-first-class-for-video)'s deferred "log a rewatch" operation, which is what lets the movie and episode pages' watch button stay usable after the first press. The timeline itself runs on **all four** video details pages, scoped three ways — one target, one season's episodes, or one show's across every season. The season and show forms are **scopes, not targets** (neither is ever itself watched), so they are separate query parameters rather than `target_type` values, and at most one narrowing may be sent. The whole-show mark later gained the **bulk dialog** — remaining episodes vs a full rewatch, and per-row dating: now, one fixed instant, each episode's air date, or each season's premiere with a fallback for seasons that have none (see [Bulk actions](#bulk-actions)). **"Mark whole season watched" was then pulled forward too**, on request: the same endpoint's `scope: season` (the season is the target; Specials are refused), the same dialog on the season page, the premiere fallback narrowed to that one season. **The currently-watching home view ("Up Next") was then pulled forward too**, on request, replacing the M0 dummy: started shows only (≥1 episode watch, dropped excluded — a watchlisted-but-never-started show does not appear), and the next episode is the first non-special episode **strictly after the highest watched position** — after S1E2 the answer is S1E3, never S1E1, and a show with nothing after its highest watched episode is absent rather than wrapping around. An unaired or undated next episode stays listed, flagged `aired: false` and badged "Upcoming" on the card, unless the release-date filters remove it — and an episode dated the user's today, which already reads as aired, carries its own `airs_today` flag and an "Airs today" badge; `only_released` splices D-012's predicate verbatim. **Owned copies were then pulled forward too**, on request — they belonged to no milestone: `user_video_copies` records which formats/services a user holds an item on, per movie and **per season** ([D-021](#d-021--owned-copies-are-per-user-and-per-season-for-shows)); the detail pages' "Your copies" tiles stop being a demo, a show-level tap fans out across every non-special season, and the show page's tiles report per-kind coverage ("3 of 5 seasons"). **Online providers were then pulled forward too**, on request — they belonged to no milestone either: the "Watch now" section's streaming half stops being a demo and renders TMDB's watch-provider data for one server-configured country, on the movie, show, season and episode pages, with locally proxied service logos and the JustWatch credit ([D-022](#d-022--online-providers-ride-the-item-snapshot-region-is-server-config)). **The Up Next card's mark-watched action was then pulled forward too**, on request, because a card that could only take you elsewhere made the one thing the view is for a trip through another page — but as a **chooser rather than the one tap this milestone described**: the whole card opens a two-action dialog, mark it watched or go to the episode's details page (the latter still a real link), and marking opens the same dated watch dialog the episode page uses — one instant and an optional rating in one transaction. The list is refetched afterwards, because the response states the show's status and progress but not its next episode. The season grid's per-episode tick was later removed: its stills are read-only badges (watched, the user's rating, the TMDB score — the history card's), and the season-level bulk button is that page's only mark action, so no one-tap undated mark remains in the SPA. **The user-set drop / un-drop path was then pulled forward too**, on request, because a show page that could mark and watchlist but never say "I gave up on this" left `dropped` as a value the whole app could read and nothing could write: `POST` / `DELETE /video/shows/{id}/drop`, show-only, idempotent both ways, never a provider call, with the two statements that write the value living in `common/status.go` beside the recomputes — the single-writer rule covers the column, not just the recompute. Only a started show can be dropped (no episode watch, no state row, a 422), the un-drop clears to `watching` and recomputes in the same transaction so a show dropped after finishing returns to *watched*, and Up Next needed no change at all: its query already excluded dropped shows. **Restoring a Ticket Box backup was then pulled forward too**, on request — it belonged to no milestone: `POST` / `GET /video/restore/ticket-box` take the version-2 JSON export of the author's own Trakt client and fold its history, ratings and watchlist into the user's state, replacing the watches of every item the file has watches for and upserting the rest, skipping-and-reporting what sofalog cannot take, materialising untracked items through the ordinary tracking gate, as an in-memory job the SPA polls from Settings → Restore backup ([D-023](#d-023--a-ticket-box-dump-is-the-one-import-path)). **Per-season progress and the episode-rating average on the show page's season grid were then pulled forward too**, on request: two derived, additive per-user fields on each season entry — watched / aired / total for that one season (Specials counting their own episodes, since this is display rather than the completion rule), and the mean of the user's episode ratings in it, a season not being rateable itself ([D-020](#d-020--seasons-are-not-rateable)); both null for an untracked show. **Similar titles were then pulled forward too**, on request — they belonged to no milestone: the movie and show pages' placeholder "Similar" rail renders TMDB's **recommendations** out of the item's own snapshot — no new provider call, stored verbatim in `metadata_json`, every card a foreign title reached by `tmdb_id` with its poster through the cache proxy ([D-024](#d-024--similar-titles-ride-the-item-snapshot)). **The scheduled TMDB refresh was then pulled forward too**, on request — D-006's one scheduler, now carrying two separately configured jobs ([D-025](#d-025--two-refresh-jobs-split-by-current-interest-on-the-row-timestamp)): an **active** job (default weekly) for every movie and show on any watchlist and every followed show still in production, and an **archive** job (default quarterly) for watched movies and followed shows TMDB has ended or cancelled, neither on any watchlist. Both re-fetch a show's root and its **open** seasons only, both are driven by the row's own `fetched_at` rather than a last-run record, and every hourly tick ends with the local status sweep — D-010's whole-table pass — whatever the intervals say. **A person details page was then pulled forward too**, on request — it belonged to no milestone: every cast card with a TMDB person id links to `video/person-details?tmdb_id=`, served live from TMDB on every view and never a catalog row, its filmography marked against the library by TMDB id ([D-027](#d-027--the-person-page-is-always-live-and-never-a-catalog-row)). **Matching watchlists were then pulled forward too**, on request — they belonged to no milestone and carve one narrow, opt-in exception out of "no sharing": a `users.match_watchlist` consent flag only its own account may set, a `match_user` filter on `GET /video/watchlist` that intersects the caller's list with every named consenting user's, and a peer list carrying id and label only ([D-028](#d-028--matching-watchlists-is-opt-in-and-only-ever-shows-the-overlap-with-your-own-list)). **One-way rating sync to the user's own TMDB account was then pulled forward too**, on request — it belonged to no milestone and is the product's first write to a provider: Settings → TMDB account links the user's own account through TMDB's approval page (the link is the opt-in), every local rating write queues a row in an outbox inside its own transaction, a worker drains it in the background, linking backfills the ratings already held, watchlist adds and removes ride the same outbox, and unlinking stops the push without touching TMDB's ratings or list ([D-029](#d-029--ratings-push-one-way-to-the-users-own-tmdb-account)). **A setup step after linking was then added**, on request: per kind, pull TMDB's list into the library once, push sofalog's once, or skip, plus a per-kind switch for the ongoing push that lives on the page afterwards ([D-036](#d-036--the-link-is-followed-by-a-one-time-setup-pull-push-or-skip-per-kind-and-per-kind-switches)). **Favorites were then pulled forward too**, on request — they belonged to no milestone: a third independent axis for movies and shows, modelled on the watchlist byte for byte — `POST` / `DELETE /video/favorites`, a heart beside the bookmark on the movie and show pages, and a Favorites page over `GET /video/favorites`. A favorite is a tracking action and a D-008 reference, keeps the item on the active refresh cadence, mirrors to the linked TMDB account through the same outbox, and stays off the upcoming calendar ([D-030](#d-030--favorites-are-a-third-independent-axis)). **The Jellyfin library scan was then pulled forward too**, on request — it belonged to no milestone and reverses one line of D-021: when `JELLYFIN_URL` and `JELLYFIN_API_KEY` are set, a background scan reads what the household's Jellyfin server holds, matches movies and seasons by TMDB id, and the `jellyfin` copy tile mirrors the answer for every user — read-only, refused by the copy routes, refetched on a schedule and on "Scan now" under Settings → Jellyfin. It never calls TMDB, never adds an item, and reads presence, not playback ([D-033](#d-033--the-jellyfin-tile-mirrors-the-households-server-when-one-is-configured)). **Trending and popular lists were then pulled forward too**, on request — they belonged to no milestone: a Trending page over `GET /video/trending` (today / this week) and a Discover tab over `GET /video/discover` — TMDB's `/discover` listing with its sort orders and filters, the popular list when unfiltered, its option lists from `GET /video/discover/options` — every list served live on every view, paged by TMDB's own `page` behind a "Load more" button and never stored — the person page's rule, an eighth provider call site — each card marked against the library by a local join and linking by local id when the catalog holds it ([D-034](#d-034--the-trending-and-popular-lists-are-always-live-and-never-a-catalog-row)). **Statistics were then pulled forward too**, on request — they belonged to no milestone and reverse one word of §9: a Stats page over `GET /video/stats`, every section computed on the server from the user's own log, ratings and show states for all time or one calendar year in their zone, never stored, never shared, never a provider call ([D-039](#d-039--statistics-are-a-read-only-projection-of-your-own-log-computed-on-the-server-in-your-zone)) |
 | **M2** — shows, the rest | What M1.5 left: the upcoming calendar — shipped as a poster grid in date order with the date on each card, widened on request to watchlisted shows and to unreleased watchlisted movies ([D-026](#d-026--the-upcoming-calendar-is-a-day-agenda-over-followed-and-watchlisted-items)). **Closed.** |
 | **M3** — books | **Withdrawn** ([D-035](#d-035--books-are-withdrawn-from-scope)): the component was specified, its first slice shipped, and the whole of it was then removed when the product narrowed to video and games. The number is kept so M4 and M5 keep theirs |
 | **M4** — games | Manual Steam sync with per-game import selection and per-game overwrite choice; achievements + icons; hours played; manual entry of hours and achievements |
-| **M5** — the rest | Export archive, API tokens (OIDC login shipped early, in M1) |
+| **M5** — the rest | Export archive (OIDC login shipped early, in M1; API tokens moved to the Android track below) |
+
+**The Android app is a track of its own beside the milestones**
+([D-040](#d-040--the-android-app-is-a-local-first-client-standalone-or-an-outbox-and-a-snapshot-against-a-server-that-stays-the-source-of-truth)),
+in three phases: the standalone app (no server change); the server side — API tokens with the
+Devices page, `episodes.tmdb_id`, the snapshot and the command batch; then linking.
 
 **M1 is deliberately more than a movies list with a toggle.** The local-first asset pipeline and the
 catalog/per-user split ship in the first slice, because both are architectural — retrofitting either
@@ -1020,15 +1035,19 @@ Decided against rather than forgotten:
   and nothing else. No feeds, no profiles, no seeing anyone's list, progress, ratings or history.
   Statistics over your **own** log are in ([D-039](#d-039--statistics-are-a-read-only-projection-of-your-own-log-computed-on-the-server-in-your-zone));
   nobody else's ever are, and no number is ever compared across accounts
-- **An offline-capable client** — no library mirror, write queue, or sync layer
+- **An offline-capable web client, and any two-way merge** — the SPA has no library mirror, write
+  queue, or sync layer
   ([D-004](#d-004--works-with-providers-down-is-about-providers-not-about-being-offline-capable)).
+  The Android app is the one offline client
+  ([D-040](#d-040--the-android-app-is-a-local-first-client-standalone-or-an-outbox-and-a-snapshot-against-a-server-that-stays-the-source-of-truth)):
+  it queues commands and takes the server's snapshot, and never merges. Background sync,
+  notifications and widgets stay out, as do games in the app.
   The one-way rating push to your own TMDB account ([D-029](#d-029--ratings-push-one-way-to-the-users-own-tmdb-account)) is not a sync layer: it exports
   your opinions outward and, after the one-time setup import ([D-036](#d-036--the-link-is-followed-by-a-one-time-setup-pull-push-or-skip-per-kind-and-per-kind-switches)), reads nothing back
 - **Manual entry for movies and shows** — TMDB search is the only path. Manual entry *is* first-class
   for game hours and achievements.
 
-Deferred but anticipated: a native mobile client (e.g. Flutter) consuming the same `/api/v1/`, which
-requires no server changes; and **importing sofalog's own export archive back in** — the Restore
+Deferred but anticipated: **importing sofalog's own export archive back in** — the Restore
 page's disabled "Sofalog dump" card. Until it lands, restore is done by restoring the data volume.
 
 ---
@@ -1107,6 +1126,11 @@ images locally — not by the client.
 problem, and directly contradicts the "simple structure / minimal moving parts" goal. Hence: no
 IndexedDB mirror, no client write queue, no sync layer.
 
+**Amended by [D-040](#d-040--the-android-app-is-a-local-first-client-standalone-or-an-outbox-and-a-snapshot-against-a-server-that-stays-the-source-of-truth).**
+The Android app is offline-capable. This decision still governs the SPA, and its objection — the
+merge problem — is what shaped D-040: the app queues commands and replaces its state with the
+server's snapshot, so nothing is ever merged.
+
 ### D-005 — Achievement icons store a single size
 
 Three rules collide for this one case: two sizes per image; both fetched as provider variants; no
@@ -1151,7 +1175,8 @@ later.
 
 **Vindicated in M1.** OIDC was subsequently pulled forward into M1 on request, and landed with **no
 migration and no auth refactor** — exactly the cost this decision was taken to avoid. API tokens
-remain M5.
+were later pulled forward too, as the Android app's device pairing
+([D-040](#d-040--the-android-app-is-a-local-first-client-standalone-or-an-outbox-and-a-snapshot-against-a-server-that-stays-the-source-of-truth)).
 
 ### D-008 — Untracking never hard-deletes
 
@@ -1818,7 +1843,7 @@ is for (D-022's argument).
 ### D-025 — two refresh jobs, split by current interest, on the row timestamp
 
 The scheduled TMDB refresh ([D-006](#d-006--exactly-one-scheduled-job-exists)) was pulled forward from M2 and shipped as **two jobs on
-one hourly loop**, each with its own interval. Eight rules hold it:
+one hourly loop**, each with its own interval. Nine rules hold it:
 
 - **Two jobs, two intervals.** The **active** job (`TMDB_REFRESH_INTERVAL`, default 7 days) covers
   every movie and show on **anyone's** watchlist or among anyone's favorites (D-030), plus every
@@ -1850,6 +1875,17 @@ one hourly loop**, each with its own interval. Eight rules hold it:
   closed season is never re-fetched by the job; the season page's 48h rule still covers it on view.
   Open seasons are computed **after** the root refresh so a season the root just materialised is not
   fetched twice.
+- **An episode that aired since the snapshot refreshes its show whatever the age.** The active job
+  carries one arm that is not a cutoff: a followed show holding a non-special episode dated after
+  the day its season was last fetched, and on or before today, joins the pass, and that season is
+  refetched with it. Air day is when a stale snapshot is most visible — a date TMDB moved after the
+  last fetch reads as aired, and an episode announced since is missing, so the show would leave
+  Up Next once the aired one is watched. Both days are read in the server's default zone (the job
+  has no user), compared in Go because no portable SQL knows the day an instant falls on. A
+  snapshot taken on the air day counts as current, so one refetch ends the arm, and because it
+  moves `fetched_at` it restarts the interval rather than adding to it: a weekly show still costs
+  about one fetch a week, now on the day it airs. It rides the active job only — `0` there turns
+  it off — and it is the one case an `Ended` show is fetched outside the archive cadence.
 - **The status sweep is local and hourly.** Every tick ends by running `RecomputeShowStatus` for
   every non-dropped (user, show) pair holding a state row or an episode watch — D-010's whole-table
   pass, done as a loop over the scoped single writer so there is still exactly one recompute in the
@@ -1866,7 +1902,9 @@ say what is due. **Rejected:** per-user selection — the catalog is shared, so 
 **Rejected:** re-fetching every season of a selected show; a twenty-season show would cost
 twenty-one calls a week to learn nothing. **Rejected:** a recency window on watched movies (the
 original sketch refreshed only those released in the last two years) — the archive cadence makes
-the distinction unnecessary and the rule simpler.
+the distinction unnecessary and the rule simpler. **Rejected:** a stored "next episode air date"
+on the show to drive the aired-since arm — the episode rows already hold every date, and a second
+copy would need its own refresh.
 
 ### D-026 — the upcoming calendar is a day agenda over followed and watchlisted items
 
@@ -2470,3 +2508,197 @@ must agree on the period. **Rejected:** bucketing in SQL — no portable zone ar
 client — two definitions of "today", the bug D-038 removed. **Rejected:** any comparison across
 accounts, leaderboards or shared stats — §9's rule stands; the carve-out is D-028's, and it is
 not widened here.
+
+### D-040 — the Android app is a local-first client: standalone, or an outbox and a snapshot against a server that stays the source of truth
+
+§9 used to rule out an offline-capable client, and [D-004](#d-004--works-with-providers-down-is-about-providers-not-about-being-offline-capable)
+gave the reason: a mirror plus a write queue turns a CRUD app into a distributed system with a
+merge problem. Two things were then wanted that the SPA cannot give. People **without** the means
+to self-host should be able to use sofalog at all; and people **with** a server, which sits on a
+home network, should be able to mark an episode on the train and have it reach the server when
+they are back. Both are answered by one design, chosen so that D-004's merge problem never
+appears: **the device never merges — it sends commands and receives the answer.**
+
+The app covers **video only**; games stay on the web. It is not at parity with the SPA from the
+start, but the video section is meant to reach it, and the first screen is Up Next.
+
+**What both modes share**
+
+- **The device's own database is the only thing the UI reads.** Up Next, history, the upcoming
+  calendar, the lists and the statistics are computed on the device, so every screen works with
+  no server and no network. Search, Discover, Trending, person pages and the first view of an
+  untracked title need the internet, exactly as they need TMDB on the web.
+- **The device calls TMDB itself**, with a key built into the app — a build-time secret supplied
+  outside the repository, never committed. It is extractable from the APK like every TMDB app's,
+  and that is accepted. The consequence that matters: **the server never hands a key to a
+  client**, so the rule that keys are server-side only, never in an API response, stands untouched. No
+  OMDb: the server has no such provider, and the app gains none without its own decision.
+- **Artwork comes from TMDB's image CDN into the app's own cache**; a tracked item's posters are
+  kept, the rest are fetched on demand. The app never reads `data/assets` from a server.
+- **The domain rules exist twice**, in Go and in Kotlin: the status recompute and its sticky
+  `dropped` ([D-010](#d-010--status-is-stored-but-system-maintained)), the aired predicate
+  ([D-012](#d-012--completion-counts-aired-non-special-episodes-only)), the Up Next pick, the
+  upcoming window, the statistics folds and the user's day
+  ([D-038](#d-038--every-instant-is-stored-in-utc-every-day-is-measured-in-the-users-zone)).
+  The device's TMDB account and Ticket Box restore add theirs: the rating rounding, the outbox
+  backoff, the instant rule, the file's validation and the episode hint.
+  This is the design's real cost. It is held by **shared fixtures**: JSON cases (a log and a
+  catalog in, the expected status / pick / numbers out) that both the Go and the Kotlin test
+  suites run, so a rule changed on one side fails the other.
+- **The TMDB attribution notice is shown in the app**, on its own data-sources screen, under the
+  same single-home rule the SPA follows.
+- **No background work.** No scheduled sync, no push, no notifications, no widgets. The app talks
+  to anything only while it is open; "on open" includes returning to the foreground.
+- **The catalog refresh runs on the device, in the foreground.** D-025's two classes — active
+  (7 days: anything on the watchlist or a favorite, plus followed shows still in production) and
+  archive (90 days: watched movies and followed shows that ended) — selected by each row's
+  `fetched_at`, ticked when the app comes on screen and every six hours while it stays there, and
+  cancelled when it leaves, with D-025's aired-since arm read in the user's zone. Every tick ends
+  with the local status sweep. It is what brings a
+  finished show back to Up Next when a new season is announced; the intervals are constants, not
+  settings.
+
+**Standalone**
+
+No account and no server. Everything lives on the phone, which makes the phone the only copy — so
+the app offers a **backup file** (export, and import of its own export) — described below. The
+time zone and the watch region are **settings of the app**, kept in its own database: the zone follows the device
+until the user picks one ([D-038](#d-038--every-instant-is-stored-in-utc-every-day-is-measured-in-the-users-zone)),
+and the region — an environment variable on a server — is a country picked on the device,
+defaulting to `RO`; changing it costs each tracked title one refetch on its next view, by the same
+`sofalog_region` marker ([D-022](#d-022--online-providers-are-tmdbs-watch-provider-data-for-one-server-configured-country)).
+
+**Linked — the server is the source of truth**
+
+- **Pairing is an API token, issued by the server to a signed-in user and shown once as a QR
+  code** on a Devices page in the SPA; the code carries `BASE_URL` and the token, the app scans
+  it. A session mints the token, so it works under OIDC, where no password exists to type
+  ([D-018](#d-018--configuring-oidc-disables-local-authentication-entirely)). Only the hash is
+  stored (§3), each device is listed by name and revocable on its own. This pulls **API tokens
+  forward from M5** ([D-007](#d-007--oidc-and-api-tokens-ship-in-m5-but-the-schema-makes-room-in-migration-1)
+  made room for them in the first migration).
+- **Every write lands in the local database and in an outbox, in one local transaction.** An
+  outbox entry is a **command** — mark watched at an instant, bulk-mark, delete a watch, rate,
+  un-rate, watchlist / favorite / copy add and remove, drop, un-drop — carrying a
+  **client-generated id** and **TMDB-addressed targets**. The screen updates from the local
+  database at once, by the Kotlin rules.
+- **On open, if the server answers: push, then pull.** The outbox is sent in order to one batch
+  endpoint. The server replays each command **through the existing service functions**, so the
+  tracking gate, the 422s and the recompute are the ones every other caller gets; it records the
+  command id, so a batch retried after a lost response applies nothing twice — which matters
+  because a dated watch always inserts ([D-009](#d-009--rewatch-history-is-first-class-for-video)).
+  Each command comes back applied, already applied, **refused** (the device drops it and tells
+  the user) or **retry** (the server could not reach TMDB to materialise the title; it stays
+  queued).
+- **The pull is a full snapshot of the user's video state, and it replaces the local copy** —
+  history, ratings, watchlist, favorites, hand-set copies, the dropped flags, the time zone and
+  the watch region, every target TMDB-addressed. A per-user **revision** rides the snapshot and
+  the request, and an unchanged revision answers with no body. Commands still queued are
+  re-applied on top. **This is why nothing merges:** a deletion made on the web is simply absent
+  from the next snapshot, and a conflict is settled by the server having applied the commands in
+  order before answering. No tombstones, no change feed, no last-writer-wins clock comparison.
+- **Unreachable is normal, not an error.** Away from the home network the app keeps working from
+  its database and the outbox grows; nothing is retried until the next open.
+- **Identity across databases is TMDB's.** Ids are local to each database
+  ([D-013](#d-013--catalog-rows-keep-integer-primary-keys)), so nothing on the wire is a local id.
+  A movie and a show are their `tmdb_id`. An episode is its **own TMDB id**, with show + season +
+  number as the fallback — TMDB renumbers, as the Ticket Box restore found
+  ([D-023](#d-023--a-ticket-box-dump-is-the-one-import-path)). That needs a nullable
+  `episodes.tmdb_id`, a new migration backfilled from the stored season documents, which already
+  carry it. D-023 declined that column for the restore alone; a sync protocol is the second
+  caller that earns it.
+- **Catalog metadata is still fetched by the device from TMDB**, linked or not — one code path,
+  and the reason the app survives the server being down. The server's snapshots are not served to
+  the app.
+
+**Switching modes.** Linking a standalone app asks once: **upload** what the device holds (as
+ordinary commands, so the server's rules apply) or **discard** it and take the server's state.
+Unlinking keeps the local copy and the app continues standalone; the token is revoked.
+
+**The app's Settings mirror the web's, as far as a device can.** Data Sources, the time zone and
+the watch region are the device's own. The account's server parts (name, sign-in, matching), Users
+and Log out — which on a device means "remove the link to the server" — are listed and disabled
+until linking exists.
+
+**The TMDB account link and the Ticket Box restore run on the device** — reversed on request; this
+decision first kept both on the web. A standalone user has no server to run them, and both are
+what a person arriving from Trakt or TMDB needs on day one.
+
+- **The TMDB account** ([D-029](#d-029--ratings-push-one-way-to-the-users-own-tmdb-account),
+  [D-036](#d-036--the-link-is-followed-by-a-one-time-setup-pull-push-or-skip-per-kind-and-per-kind-switches))
+  keeps every rule of the server's: the link is the consent and the setup the opt-in; an outbox
+  row is written in the local write's transaction, guarded in SQL by the link and that kind's
+  switch; `updated_at` is the replace marker; a refused session breaks the link and empties the
+  queue; a pull overwrites ratings, inserts listings if absent and never queues anything back; the
+  watch history is never sent. Three things differ. The approval returns through the app's own
+  link (`sofalog://tmdb-link`) instead of a callback route, with the pending token persisted and
+  the exchange retried when the app comes back to the front, because a browser may not follow a
+  custom scheme. The outbox is **TMDB-addressed** (a movie's or show's id, plus a position for an
+  episode), so a row is sent without a local lookup. And **nothing runs in the background**: the
+  queue moves only while the app is on screen, and the setup's import dies with the process —
+  its end is what marks the setup done, so one cut short is offered again and converges. The
+  session id is a secret like the key: it is kept out of the database, encrypted in the app's
+  no-backup storage, so no device backup, transfer or backup file carries it; a library restored
+  without it shows the link as broken and asks to link again.
+- **The backup file** is one JSON document, `"format": "sofalog-backup"`, `"schemaVersion": 1`,
+  holding the user's state and nothing else: watch history, ratings, watchlist, favorites, dropped
+  shows and hand-set copies. It is **grouped per title and TMDB-addressed** — `movies[]` (each
+  with `watches`, `rating {value, at}`, `watchlistAt`, `favoriteAt`, `copies[]`) and `shows[]`
+  (`rating`, `watchlistAt`, `favoriteAt`, `droppedAt`, `episodes[]` by the episode's own TMDB id
+  **and** its season + number, each with `watches` and `rating`, and `seasonCopies[]` by season
+  number) — with no local id, no catalog data and no artwork; `title` is there for a human reader
+  and is never trusted. Absent means "not there": no nulls, no empty lists. The **settings and the
+  TMDB link are not in it**. Creating one is a consistent read in one transaction, written either
+  into a document the user creates (the system's file picker) or into the app's cache and handed
+  to another app through the share sheet by a `FileProvider` read grant — which is also how it
+  reaches another device. **Restoring one is file-wins-per-title**: every movie and show the file
+  names is replaced by the file's state — watches, ratings, list membership with the file's dates,
+  copies, and the drop, including the removal of what the file lacks — and every title the file
+  does not name is untouched, so a run cut short loses nothing and the same file twice changes
+  nothing. It is the Ticket Box restore's run (same reader discipline: a lenient probe of `format`
+  and `schemaVersion`, then a strict decode; same materialise-outside-the-transaction, one
+  transaction and one recompute per title, breaker, skip-and-report) with the group marked
+  *exact*. A show's status is rebuilt from the restored log by the single writer, then the file's
+  drop is stamped with its own instant. Ratings and list changes still queue for a linked TMDB
+  account, as every local write does; a removal queues only when the row was really there.
+- **The Ticket Box restore** ([D-023](#d-023--a-ticket-box-dump-is-the-one-import-path)) keeps the
+  server's rules too — version 5 only with the lenient probe before the strict decode, replace
+  only for a group the file has watches for, skip and report with the 200 cap, the breaker after
+  three outages, one transaction and at most one recompute per group — and reads the **file**:
+  it calls nobody but TMDB, for the titles it names. An episode is resolved by its own TMDB id
+  first through the device's `episodes.tmdb_id` column, which it has always had. It adds a
+  **Stop** action (the job ends as cancelled; committed groups stay), since the only alternative
+  on a phone is killing the app.
+
+Both write through the tracking gate like any other action, and both must be revisited when
+linking ships: with a server as the source of truth their writes have to become commands, or the
+pages hide while linked.
+
+**Not in the app:** the Jellyfin scan and its synced tile
+([D-033](#d-033--the-jellyfin-tile-mirrors-the-households-server-when-one-is-configured)) and
+matching watchlists ([D-028](#d-028--matching-watchlists-is-opt-in-and-only-ever-shows-the-overlap-with-your-own-list)).
+They need a server and stay on the web; a linked user's server still runs them, and their results
+reach the app only where they are ordinary user state.
+
+**Delivery** is its own track beside the milestones, in three phases: **(1)** the standalone
+app, which changes nothing on the server; **(2)** the server side — API tokens and the Devices
+page, `episodes.tmdb_id`, the revision, the snapshot and the command batch, each landing with its
+`api/openapi.yaml` change; **(3)** linking. Route names and the revision's mechanism are settled
+when phase 2 is built.
+
+**What D-004 still means.** The **SPA** stays exactly as it was: no IndexedDB mirror, no write
+queue, mutations need the server. And "works with providers down" is still satisfied server-side.
+D-040 does not make the product a distributed system; it adds one client that is allowed to be
+behind, and never allowed to disagree.
+
+**Rejected:** a thin client of `/api/v1` — it cannot serve a user with no server, and it is dead
+off the home network, the two cases the app exists for. **Rejected:** two-way sync with
+tombstones and per-row timestamps — the merge problem D-004 names, bought to avoid downloading a
+snapshot that is well under a megabyte for a history of twenty thousand plays. **Rejected:**
+handing the server's TMDB key to a paired device — any account could extract the household's key,
+and it reverses a rule that a built-in key leaves intact. **Rejected:** serving the app its
+catalog and artwork from the server — a second code path that fails precisely when the server is
+unreachable. **Rejected:** background sync — a battery and permissions cost for a state the user
+only looks at when the app is open. **Rejected:** a Kotlin Multiplatform or shared-logic module
+to avoid the duplicated rules — the server is Go; shared fixtures hold the two together at a
+fraction of the machinery.

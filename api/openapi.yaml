@@ -5490,7 +5490,7 @@ components:
         episode:
           type: object
           required:
-            [id, season_id, season, number, title, air_date, rating, marker, aired]
+            [id, season_id, season, number, title, air_date, rating, marker, aired, airs_today]
           properties:
             id:
               type: integer
@@ -5532,6 +5532,14 @@ components:
                 the user's today in their time zone (D-038) — false for a
                 future or unknown air date. Clients
                 render the "Upcoming" badge from this and never derive it.
+            airs_today:
+              type: boolean
+              description: >
+                Whether the episode's air date is the user's today in their
+                time zone (D-038). Such an episode is already `aired: true`
+                (aired means on or before today), so this is a separate
+                flag; clients render the "Airs today" badge from it and
+                never compare `air_date` with a clock themselves.
         last_watched_at:
           type: string
           format: date-time

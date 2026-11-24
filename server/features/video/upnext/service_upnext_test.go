@@ -495,6 +495,43 @@ func TestUpNextInvalidParams(t *testing.T) {
 	}
 }
 
+// airs_today is its own fact, not the complement of aired: an episode dated
+// today has already aired under D-012's predicate and is the only one flagged.
+// FixedClock's today is 2026-08-18.
+func TestUpNextAirsToday(t *testing.T) {
+	t.Parallel()
+	svc := upNextService(t)
+	user := videotest.SeedUser(t, svc.DB, "a@example.com")
+	cases := []struct {
+		name      string
+		airDate   *string
+		wantAired bool
+		wantToday bool
+	}{
+		{"0 yesterday", videotest.Ptr("2026-08-17"), true, false},
+		{"1 today", videotest.Ptr("2026-08-18"), true, true},
+		{"2 tomorrow", videotest.Ptr("2026-08-19"), false, false},
+		{"3 undated", nil, false, false},
+	}
+	for i, tc := range cases {
+		show := videotest.SeedShow(t, svc.DB, int64(100+i), tc.name)
+		e1 := videotest.SeedEpisode(t, svc.DB, show, 1, 1, videotest.Ptr("2026-01-01"))
+		videotest.SeedEpisode(t, svc.DB, show, 1, 2, tc.airDate)
+		videotest.SeedWatch(t, svc.DB, user, "episode", e1, "2026-08-01T20:00:00Z")
+	}
+	entries := upNext(t, svc, user, UpNextParams{OrderBy: "show_name", Order: "asc"})
+	if len(entries) != len(cases) {
+		t.Fatalf("len = %d, want %d (%v)", len(entries), len(cases), showNames(entries))
+	}
+	for i, tc := range cases {
+		got := entries[i].Episode
+		if got.Aired != tc.wantAired || got.AirsToday != tc.wantToday {
+			t.Errorf("%s: aired = %v, airs_today = %v; want %v, %v",
+				tc.name, got.Aired, got.AirsToday, tc.wantAired, tc.wantToday)
+		}
+	}
+}
+
 // D-038: the aired flag ends at midnight in the USER's zone. At 22:30 UTC on
 // the 18th, an episode dated the 19th has aired in Bucharest and not in New
 // York — the same row, two honest answers.
@@ -516,6 +553,10 @@ func TestUpNextAiredFollowsUserZone(t *testing.T) {
 		wantEpisode(t, e, 1, 2)
 		if e.Episode.Aired != tc.wantAired {
 			t.Errorf("zone %q: aired = %v, want %v", tc.zone, e.Episode.Aired, tc.wantAired)
+		}
+		// The 19th is "today" exactly where it has already begun.
+		if e.Episode.AirsToday != tc.wantAired {
+			t.Errorf("zone %q: airs_today = %v, want %v", tc.zone, e.Episode.AirsToday, tc.wantAired)
 		}
 		released := upNext(t, svc, user, UpNextParams{OnlyReleased: "true"})
 		if got := len(released) == 1; got != tc.wantAired {

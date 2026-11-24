@@ -30,6 +30,15 @@
   --warn-tint: rgb(224 184 79 / 0.14);
   --warn-tint-strong: rgb(224 184 79 / 0.24);
 
+  /* Episode marker badges (premiere / finales / "Airs …"), one set for every
+     page that shows them. Solid and with one white text colour — the Android
+     app's Up Next tabs use the same values (ui/theme/Color.kt); keep them in
+     sync. Both finales share the red. */
+  --badge-airs: #d9a21b;
+  --badge-finale: #c0413f;
+  --badge-premiere: #3a9a5b;
+  --badge-text: #fff;
+
   /* The primary tracking action (Mark As Watched) — deliberately not --accent,
      so the one button that writes to the library stands apart from navigation
      chrome. Keep the pair in sync. */

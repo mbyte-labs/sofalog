@@ -25,6 +25,16 @@ export function formatDay(day) {
   return dayFmt.format(utcDay(day))
 }
 
+/**
+ * A plain day as "19.11.2026" — the Up Next card's "Airs …" badge, where a
+ * spelled-out month would not fit. Split, never parsed, so no zone moves it.
+ * @param {string} day YYYY-MM-DD
+ */
+export function formatDayNumeric(day) {
+  const [y, m, d] = day.split('-')
+  return `${d}.${m}.${y}`
+}
+
 /** @param {string} day YYYY-MM-DD */
 function utcDay(day) {
   const [y, m, d] = day.split('-').map(Number)

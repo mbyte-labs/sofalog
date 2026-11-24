@@ -541,17 +541,17 @@
   }
 
   .marker.season_finale {
-    background: rgb(190 55 55 / 0.8);
-    color: #fff;
+    background: var(--badge-finale);
+    color: var(--badge-text);
   }
 
   .marker.season_premiere {
-    background: rgb(55 150 85 / 0.8);
-    color: #fff;
+    background: var(--badge-premiere);
+    color: var(--badge-text);
   }
 
   .marker.mid_season_finale {
-    background: rgb(220 175 50 / 0.8);
-    color: #1f1e1d;
+    background: var(--badge-finale);
+    color: var(--badge-text);
   }
 </style>
